@@ -4,7 +4,10 @@
 
 1. `docs/architecture.md`
 2. `docs/runbook.md`
-3. `docs/ip_boundary.md`
+3. `docs/operations.md`
+4. `docs/demo_scenarios.md`
+5. `docs/performance_report.md`
+6. `docs/ip_boundary.md`
 
 ## Notes
 

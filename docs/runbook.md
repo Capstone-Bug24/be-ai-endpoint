@@ -5,7 +5,7 @@
 - Python 3.11
 - `pip install -r requirements.txt -r requirements-dev.txt`
 
-## Basic Dry-run
+## Basic Dry-run (File)
 
 ```bash
 PYTHONPATH=src python -m capruntime --config configs/runtime.yaml --dry-run --max-events 20
@@ -26,10 +26,51 @@ PYTHONPATH=src python -m capruntime \
   --max-events 50
 ```
 
+## Dual Camera Runtime
+
+Use one process per camera:
+
+```bash
+PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam1_pending.jsonl python -m capruntime --source-type rtsp --rtsp-url rtsp://127.0.0.1:8554/cam1 --camera-id cam01 --model-type mock --dry-run --output-jsonl outputs/cam1_events.jsonl --fps-limit 10
+```
+
+```bash
+PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam2_pending.jsonl python -m capruntime --source-type rtsp --rtsp-url rtsp://127.0.0.1:8554/cam2 --camera-id cam02 --model-type mock --dry-run --output-jsonl outputs/cam2_events.jsonl --fps-limit 10
+```
+
 ## Backend Outage Behavior
 
-- Events are persisted to `outputs/spool/pending_events.jsonl` when backend send fails.
-- On subsequent successful sends, backlog is flushed first.
+- Unsent events are persisted to `outputs/spool/*.jsonl`.
+- Backlog is flushed first on next successful send.
+
+## Systemd Operation
+
+Detailed steps: `docs/operations.md`
+
+Core commands:
+
+```bash
+sudo systemctl enable --now capruntime@cam01
+sudo systemctl enable --now capruntime@cam02
+sudo journalctl -u capruntime@cam01 -f
+```
+
+## Demo And Validation
+
+Scenario scripts and expected outcomes: `docs/demo_scenarios.md`
+
+Performance baseline and repro: `docs/performance_report.md`
+
+## Troubleshooting
+
+- RTSP does not connect:
+  - verify RTSP server (`mediamtx`) is running
+  - verify camera URL and port
+- spool keeps growing:
+  - verify backend URL and backend health
+  - verify firewall/network route to backend
+- webcam open fails:
+  - verify camera device permissions and index (`--camera-index`)
 
 ## Test
 

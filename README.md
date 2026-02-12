@@ -35,13 +35,13 @@ flowchart LR
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-### 2) Dry-run with file source
+### 2) File dry-run
 
 ```bash
 PYTHONPATH=src python -m capruntime --config configs/runtime.yaml --dry-run --max-events 10
 ```
 
-### 3) RTSP to backend
+### 3) RTSP input
 
 ```bash
 PYTHONPATH=src python -m capruntime \
@@ -51,27 +51,40 @@ PYTHONPATH=src python -m capruntime \
   --max-events 50
 ```
 
-### 4) Webcam
+### 4) Webcam input
 
 ```bash
 PYTHONPATH=src python -m capruntime --source-type webcam --camera-index 0 --dry-run
 ```
 
+### 5) Dual camera (two processes)
+
+```bash
+PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam1_pending.jsonl python -m capruntime --source-type rtsp --rtsp-url rtsp://127.0.0.1:8554/cam1 --camera-id cam01 --model-type mock --dry-run --output-jsonl outputs/cam1_events.jsonl --fps-limit 10
+```
+
+```bash
+PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam2_pending.jsonl python -m capruntime --source-type rtsp --rtsp-url rtsp://127.0.0.1:8554/cam2 --camera-id cam02 --model-type mock --dry-run --output-jsonl outputs/cam2_events.jsonl --fps-limit 10
+```
+
+## Operations And Demo
+
+- service deployment: `docs/operations.md`
+- demo scenarios: `docs/demo_scenarios.md`
+- performance/resilience report: `docs/performance_report.md`
+- runbook: `docs/runbook.md`
+
 ## Environment Variables
 
-Use `.env.example` as the baseline.
+Use `.env.example` as the baseline (`CR_` prefix).
 
-Prefix: `CR_`
+## Capstone Delivery Checklist
 
-- `CR_SOURCE_TYPE`
-- `CR_MODEL_TYPE`
-- `CR_BACKEND_URL`
-- `CR_SPOOL_FILE_PATH`
-
-## Legacy Status
-
-Previous implementation was removed from the active repository snapshot.
-Current repository content is runtime v2 only.
+- one process per camera verified
+- multi-sensor per process verified
+- backend outage to spool fallback verified
+- RTSP reconnect behavior documented
+- systemd operation template provided
 
 ## Test
 
@@ -79,3 +92,8 @@ Current repository content is runtime v2 only.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 python scripts/test_hygiene.py --strict --max-duplicate-groups 0 --max-no-assert 0 --max-trivial-assert-true 0
 ```
+
+## Legacy Status
+
+Previous implementation was removed from the active repository snapshot.
+Current repository content is runtime v2 only.

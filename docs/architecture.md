@@ -5,6 +5,7 @@
 - One process handles one camera stream.
 - Sensor ingestion is parallelized by sensor workers in the same process.
 - Main loop is intentionally single-threaded for video path simplicity.
+- Horizontal scale is process-level (camera count = process count).
 
 ## Flow
 
@@ -22,3 +23,14 @@
 - Sensor failure must not stop camera loop.
 - RTSP source reconnect uses incremental backoff.
 - Spool queue must preserve unsent events between retries.
+
+## Ownership Boundary
+
+- This repository scope is "camera/sensor to backend event runtime".
+- Frontend visualization and backend policy/alert decisions are out of scope.
+
+## Operational Contract
+
+- Input contract: exactly one camera per process, optional many sensors.
+- Output contract: event delivery attempts backend first, local spool fallback.
+- Recovery contract: runtime continues through transient backend or RTSP faults.

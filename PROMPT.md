@@ -38,6 +38,15 @@ New work must stay in runtime v2 structure.
 - Avoid reintroducing plugin-path runtime loading.
 - Keep behavior explicit and operationally testable.
 - If behavior changes, update `README.md`, `docs/index.md`, and tests together.
+- Keep operations docs aligned: `docs/operations.md`, `docs/demo_scenarios.md`, `docs/performance_report.md`.
+
+## Capstone Acceptance Focus
+
+- one process per camera
+- multi-sensor in one process
+- backend-down spool survival
+- RTSP reconnect survival
+- systemd deployment readiness
 
 ## Verification
 

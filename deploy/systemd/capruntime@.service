@@ -1,0 +1,21 @@
+[Unit]
+Description=CapRuntime camera instance (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=capruntime
+WorkingDirectory=/opt/be-ai-endpoint
+EnvironmentFile=/etc/default/capruntime-%i
+Environment=PYTHONPATH=src
+ExecStart=/opt/be-ai-endpoint/.venv/bin/python -m capruntime --config ${CR_CONFIG:-configs/runtime.yaml}
+Restart=always
+RestartSec=2
+TimeoutStopSec=20
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
