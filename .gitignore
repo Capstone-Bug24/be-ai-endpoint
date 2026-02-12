@@ -1,0 +1,66 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.dist/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.cache/
+.nox/
+.tox/
+.coverage
+.coverage.*
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Env files (keep examples)
+.env
+.env.*
+!.env.example
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Project artifacts
+/outputs/
+/data/tmp/
+/data/processed/
+/data/raw/
+/data/**/cache/
+/data/**/tmp/
+models/
+
+# Claude Code
+.claude/
+
+# Windows artifacts
+nul
+
+# Project specific
+events.jsonl
+yolov8n.pt

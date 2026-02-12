@@ -1,0 +1,6 @@
+ultralytics==8.4.12
+onnx
+onnxscript
+# Runtime (choose one based on device):
+onnxruntime
+# onnxruntime-gpu

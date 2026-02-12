@@ -1,0 +1,41 @@
+runtime:
+  site_id: "S001"
+  camera_id: "cam01"
+  timezone: "UTC"
+  fps_limit: 10
+  max_events: null
+  dry_run: true
+  output_jsonl: null
+
+source:
+  # file | rtsp | webcam
+  type: "file"
+  rtsp_url: null
+  file_path: "data/samples/sample.avi"
+  webcam_index: 0
+  loop: false
+
+model:
+  # mock | yolo | onnx
+  type: "mock"
+  score_threshold: 0.25
+  yolo_model_path: null
+  onnx_model_path: null
+
+sensors:
+  - name: "ultra_front"
+    type: "constant"
+    interval_sec: 0.2
+    constant_value: 1.5
+  - name: "ultra_rear"
+    type: "constant"
+    interval_sec: 0.4
+    constant_value: 2.2
+
+backend:
+  url: "http://127.0.0.1:8080/api/events"
+  timeout_sec: 2.0
+
+spool:
+  file_path: "outputs/spool/pending_events.jsonl"
+  flush_batch: 100
