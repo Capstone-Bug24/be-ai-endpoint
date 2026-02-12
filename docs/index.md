@@ -7,7 +7,8 @@
 3. `docs/operations.md`
 4. `docs/demo_scenarios.md`
 5. `docs/performance_report.md`
-6. `docs/ip_boundary.md`
+6. `docs/team_alignment.md`
+7. `docs/ip_boundary.md`
 
 ## Notes
 

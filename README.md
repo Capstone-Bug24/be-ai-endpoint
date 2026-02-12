@@ -72,6 +72,7 @@ PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam2_pending.jsonl python -m cap
 - service deployment: `docs/operations.md`
 - demo scenarios: `docs/demo_scenarios.md`
 - performance/resilience report: `docs/performance_report.md`
+- team alignment checklist: `docs/team_alignment.md`
 - runbook: `docs/runbook.md`
 
 ## Environment Variables
