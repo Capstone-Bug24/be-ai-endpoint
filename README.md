@@ -4,6 +4,15 @@ Single-camera runtime for capstone delivery.
 
 Python baseline: **3.11**
 
+## Team Sharing Entry
+
+For cross-team coordination, start here first:
+
+- shared docs entry: `docs/shared/README.md`
+- official team contract: `docs/shared/team_contract.md`
+- shared examples: `docs/shared/schema_examples.md`
+- shared glossary: `docs/shared/glossary.md`
+
 ## Scope
 
 - One process handles exactly one camera input.
@@ -69,10 +78,11 @@ PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam2_pending.jsonl python -m cap
 
 ## Operations And Demo
 
+- shared team docs: `docs/shared/README.md`
 - service deployment: `docs/operations.md`
 - demo scenarios: `docs/demo_scenarios.md`
 - performance/resilience report: `docs/performance_report.md`
-- team alignment checklist: `docs/team_alignment.md`
+- legacy team alignment pointer: `docs/team_alignment.md`
 - runbook: `docs/runbook.md`
 
 ## Environment Variables
