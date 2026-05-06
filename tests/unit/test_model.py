@@ -11,7 +11,7 @@ def test_mock_model_produces_detection() -> None:
     detections = runner.infer(frame, frame_index=3)
     assert len(detections) == 1
     det = detections[0]
-    assert det["event_type"] == "ZONE_INTRUSION"
+    assert det["event_type"] == "DETECTION"
     assert det["confidence"] >= 0.2
 
 

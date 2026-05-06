@@ -21,6 +21,8 @@ model:
   score_threshold: 0.25
   yolo_model_path: null
   onnx_model_path: null
+  # Use "cuda:0" or "0" on an NVIDIA CUDA machine. Keep null/empty for auto CPU fallback.
+  device: null
 
 sensors:
   - name: "ultra_front"
@@ -32,9 +34,22 @@ sensors:
     interval_sec: 0.4
     constant_value: 2.2
 
+rules:
+  # Demo rule: screen center is (0, 0). Quadrants: 1=top-right, 2=top-left, 3=bottom-left, 4=bottom-right.
+  danger_zones:
+    - zone_id: "danger_q2"
+      type: "quadrant"
+      quadrant: 2
+      severity: "MEDIUM"
+  sensor_thresholds:
+    - sensor: "ultra_front"
+      less_than: 1.8
+      severity: "HIGH"
+      event_type: "PROXIMITY_RISK"
+
 backend:
-  url: "http://127.0.0.1:8080/api/events"
-  timeout_sec: 2.0
+  url: "http://127.0.0.1:8080/api/ai/events"
+  timeout_sec: 10.0
 
 spool:
   file_path: "outputs/spool/pending_events.jsonl"

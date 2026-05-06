@@ -6,6 +6,7 @@ import time
 from .emitter import ResilientEmitter
 from .events import build_event
 from .model import ModelRunner, create_model_runner
+from .rules import apply_runtime_rules
 from .sensors import SensorHub
 from .settings import RuntimeSettings
 from .video import VideoSource, create_video_source
@@ -68,6 +69,13 @@ class CameraRuntime:
 
                 detections = self.model_runner.infer(frame, frame_index)
                 sensors = self.sensor_hub.snapshot()
+                detections = apply_runtime_rules(
+                    detections=detections,
+                    frame=frame,
+                    sensor_snapshot=sensors,
+                    danger_zones=self.settings.danger_zones,
+                    sensor_rules=self.settings.sensor_rules,
+                )
                 for detection in detections:
                     event = build_event(
                         site_id=self.settings.site_id,

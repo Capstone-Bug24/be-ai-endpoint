@@ -27,6 +27,27 @@ def test_load_settings_from_yaml(tmp_path: Path, sample_video: Path) -> None:
     assert settings.model.type == "mock"
 
 
+def test_model_device_override(tmp_path: Path, sample_video: Path) -> None:
+    cfg = tmp_path / "runtime.yaml"
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "source": {"type": "file", "file_path": str(sample_video)},
+                "model": {"type": "yolo", "yolo_model_path": "models/yolov8n.pt"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    settings = load_runtime_settings(
+        config_path=cfg,
+        cli_overrides={"model": {"device": "cuda:0"}},
+    )
+
+    assert settings.model.device == "cuda:0"
+
+
 def test_invalid_source_type_raises(tmp_path: Path) -> None:
     cfg = tmp_path / "runtime.yaml"
     cfg.write_text(yaml.safe_dump({"source": {"type": "invalid"}}), encoding="utf-8")

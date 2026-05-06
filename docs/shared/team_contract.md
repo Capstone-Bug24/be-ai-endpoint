@@ -23,7 +23,8 @@
 - `confidence`: 실수
 - `bbox`: `x1`, `y1`, `x2`, `y2` 정수 필드
 - `zone`: `zone_id`, `inside` 필드를 가진 객체
-- `sensors`: 센서 이름을 키로 가지는 객체
+- `sensor_status`: 센서 전체 상태 요약 (`OK`, `WARN`, `ALERT`, `CRITICAL`, `UNKNOWN`)
+- `sensors`: 센서 이름을 키로 가지는 숫자값 객체
 
 ## AI/Runtime
 
@@ -37,11 +38,11 @@
 
 - Streaming 팀이 제공하는 `camera_id`별 RTSP URL과 운영 정보
 - IoT 팀이 제공하는 센서 이름, 주기, stale 기준, JSON 객체 payload
-- Backend 팀이 제공하는 `POST /api/events`와 응답 의미
+- Backend 팀이 제공하는 `POST /api/ai/events`와 응답 의미
 
 ### AI가 넘기는 출력
 
-- 이벤트 1건당 JSON 1개를 `POST /api/events`로 전송 시도
+- 이벤트 1건당 JSON 1개를 `POST /api/ai/events`로 전송 시도
 - 전송 실패 시 로컬 spool에 남겨두고 이후 성공 시 재전송 시도
 - 이벤트 본문에는 영상 기반 detection 정보와 최신 센서 스냅샷 포함
 
@@ -80,7 +81,7 @@
 
 ### 해야 할 제공물
 
-- `POST /api/events` 엔드포인트
+- `POST /api/ai/events` 엔드포인트
 - `2xx`와 `non-2xx`의 의미가 분명한 응답 계약
 - `event_id` 기준 멱등 처리 규칙
 - 프론트와 공유할 이벤트 타입 사전
@@ -145,7 +146,7 @@
 ### AI가 넘기는 출력
 
 - 직접 제어 출력은 없다.
-- AI Runtime은 최신 센서 스냅샷을 이벤트의 `sensors` 필드에 반영한다.
+- AI Runtime은 최신 센서 숫자값을 이벤트의 `sensors` 필드에 반영하고, 상태 요약은 `sensor_status` 상단 필드에 반영한다.
 
 ### 오해하기 쉬운 비범위
 

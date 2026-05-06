@@ -46,6 +46,7 @@ class ModelSettings:
     score_threshold: float = 0.25
     yolo_model_path: str | None = None
     onnx_model_path: str | None = None
+    device: str | None = None
 
 
 @dataclass(frozen=True)
@@ -59,9 +60,26 @@ class SensorSettings:
 
 
 @dataclass(frozen=True)
+class DangerZoneSettings:
+    zone_id: str
+    type: str = "quadrant"  # quadrant
+    quadrant: int = 1
+    severity: str = "MEDIUM"
+
+
+@dataclass(frozen=True)
+class SensorRuleSettings:
+    sensor: str
+    less_than: float | None = None
+    greater_than: float | None = None
+    severity: str = "HIGH"
+    event_type: str = "PROXIMITY_RISK"
+
+
+@dataclass(frozen=True)
 class BackendSettings:
-    url: str = "http://127.0.0.1:8080/api/events"
-    timeout_sec: float = 2.0
+    url: str = "http://127.0.0.1:8080/api/ai/events"
+    timeout_sec: float = 10.0
 
 
 @dataclass(frozen=True)
@@ -82,6 +100,8 @@ class RuntimeSettings:
     source: SourceSettings = field(default_factory=SourceSettings)
     model: ModelSettings = field(default_factory=ModelSettings)
     sensors: list[SensorSettings] = field(default_factory=list)
+    danger_zones: list[DangerZoneSettings] = field(default_factory=list)
+    sensor_rules: list[SensorRuleSettings] = field(default_factory=list)
     backend: BackendSettings = field(default_factory=BackendSettings)
     spool: SpoolSettings = field(default_factory=SpoolSettings)
 
@@ -109,11 +129,16 @@ def _default_config() -> dict[str, Any]:
             "score_threshold": 0.25,
             "yolo_model_path": None,
             "onnx_model_path": None,
+            "device": None,
         },
         "sensors": [],
+        "rules": {
+            "danger_zones": [],
+            "sensor_thresholds": [],
+        },
         "backend": {
-            "url": "http://127.0.0.1:8080/api/events",
-            "timeout_sec": 2.0,
+            "url": "http://127.0.0.1:8080/api/ai/events",
+            "timeout_sec": 10.0,
         },
         "spool": {
             "file_path": "outputs/spool/pending_events.jsonl",
@@ -165,11 +190,13 @@ def _env_overrides() -> dict[str, Any]:
         model["yolo_model_path"] = os.getenv("CR_YOLO_MODEL_PATH")
     if os.getenv("CR_ONNX_MODEL_PATH"):
         model["onnx_model_path"] = os.getenv("CR_ONNX_MODEL_PATH")
+    if os.getenv("CR_MODEL_DEVICE"):
+        model["device"] = os.getenv("CR_MODEL_DEVICE")
 
     if os.getenv("CR_BACKEND_URL"):
         backend["url"] = os.getenv("CR_BACKEND_URL")
     if os.getenv("CR_BACKEND_TIMEOUT_SEC"):
-        backend["timeout_sec"] = float(os.getenv("CR_BACKEND_TIMEOUT_SEC", "2.0"))
+        backend["timeout_sec"] = float(os.getenv("CR_BACKEND_TIMEOUT_SEC", "10.0"))
 
     if os.getenv("CR_SPOOL_FILE_PATH"):
         spool["file_path"] = os.getenv("CR_SPOOL_FILE_PATH")
@@ -207,6 +234,9 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
     backend_cfg = cfg.get("backend", {})
     spool_cfg = cfg.get("spool", {})
     sensors_cfg = cfg.get("sensors", [])
+    rules_cfg = cfg.get("rules", {})
+    danger_zones_cfg = rules_cfg.get("danger_zones", [])
+    sensor_rules_cfg = rules_cfg.get("sensor_thresholds", [])
 
     source = SourceSettings(
         type=str(source_cfg.get("type", "file")).strip().lower(),
@@ -220,6 +250,7 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
         score_threshold=float(model_cfg.get("score_threshold", 0.25)),
         yolo_model_path=model_cfg.get("yolo_model_path"),
         onnx_model_path=model_cfg.get("onnx_model_path"),
+        device=model_cfg.get("device"),
     )
 
     sensors: list[SensorSettings] = []
@@ -242,6 +273,43 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
             )
         )
 
+    danger_zones: list[DangerZoneSettings] = []
+    if not isinstance(danger_zones_cfg, list):
+        raise ValueError("rules.danger_zones must be a list")
+    for item in danger_zones_cfg:
+        if not isinstance(item, dict):
+            continue
+        zone_id = str(item.get("zone_id", "")).strip()
+        if not zone_id:
+            continue
+        danger_zones.append(
+            DangerZoneSettings(
+                zone_id=zone_id,
+                type=str(item.get("type", "quadrant")).strip().lower(),
+                quadrant=int(item.get("quadrant", 1)),
+                severity=str(item.get("severity", "MEDIUM")).strip().upper(),
+            )
+        )
+
+    sensor_rules: list[SensorRuleSettings] = []
+    if not isinstance(sensor_rules_cfg, list):
+        raise ValueError("rules.sensor_thresholds must be a list")
+    for item in sensor_rules_cfg:
+        if not isinstance(item, dict):
+            continue
+        sensor = str(item.get("sensor", "")).strip()
+        if not sensor:
+            continue
+        sensor_rules.append(
+            SensorRuleSettings(
+                sensor=sensor,
+                less_than=float(item["less_than"]) if item.get("less_than") is not None else None,
+                greater_than=float(item["greater_than"]) if item.get("greater_than") is not None else None,
+                severity=str(item.get("severity", "HIGH")).strip().upper(),
+                event_type=str(item.get("event_type", "PROXIMITY_RISK")).strip().upper(),
+            )
+        )
+
     settings = RuntimeSettings(
         site_id=str(runtime_cfg.get("site_id", "S001")),
         camera_id=str(runtime_cfg.get("camera_id", "cam01")),
@@ -253,9 +321,11 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
         source=source,
         model=model,
         sensors=sensors,
+        danger_zones=danger_zones,
+        sensor_rules=sensor_rules,
         backend=BackendSettings(
-            url=str(backend_cfg.get("url", "http://127.0.0.1:8080/api/events")),
-            timeout_sec=float(backend_cfg.get("timeout_sec", 2.0)),
+            url=str(backend_cfg.get("url", "http://127.0.0.1:8080/api/ai/events")),
+            timeout_sec=float(backend_cfg.get("timeout_sec", 10.0)),
         ),
         spool=SpoolSettings(
             file_path=str(spool_cfg.get("file_path", "outputs/spool/pending_events.jsonl")),
@@ -267,6 +337,11 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
         raise ValueError(f"Unsupported source.type: {settings.source.type}")
     if settings.model.type not in {"mock", "yolo", "onnx"}:
         raise ValueError(f"Unsupported model.type: {settings.model.type}")
+    for zone in settings.danger_zones:
+        if zone.type != "quadrant":
+            raise ValueError(f"Unsupported danger zone type: {zone.type}")
+        if zone.quadrant not in {1, 2, 3, 4}:
+            raise ValueError(f"Unsupported quadrant: {zone.quadrant}")
     if settings.source.type == "file" and not settings.source.file_path:
         raise ValueError("source.file_path is required when source.type=file")
     if settings.source.type == "rtsp" and not settings.source.rtsp_url:

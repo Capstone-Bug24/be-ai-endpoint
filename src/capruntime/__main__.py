@@ -29,6 +29,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--loop", action="store_true", help="loop file source")
 
     parser.add_argument("--model-type", choices=("mock", "yolo", "onnx"), default=None)
+    parser.add_argument("--yolo-model-path", default=None)
+    parser.add_argument("--onnx-model-path", default=None)
+    parser.add_argument("--device", default=None, help="model device override, e.g. cpu, cuda:0, 0")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--output-jsonl", default=None)
     parser.add_argument("--backend-url", default=None)
@@ -69,6 +72,12 @@ def _build_cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
 
     if args.model_type is not None:
         model_cfg["type"] = args.model_type
+    if args.yolo_model_path is not None:
+        model_cfg["yolo_model_path"] = args.yolo_model_path
+    if args.onnx_model_path is not None:
+        model_cfg["onnx_model_path"] = args.onnx_model_path
+    if args.device is not None:
+        model_cfg["device"] = args.device
 
     if args.backend_url is not None:
         backend_cfg["url"] = args.backend_url

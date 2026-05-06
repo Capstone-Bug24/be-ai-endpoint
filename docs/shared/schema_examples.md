@@ -28,26 +28,13 @@
     "y2": 176
   },
   "zone": {
-    "zone_id": "",
-    "inside": false
+    "zone_id": "danger_q2",
+    "inside": true
   },
+  "sensor_status": "ALERT",
   "sensors": {
-    "ultra_front": {
-      "sensor": "ultra_front",
-      "ts": "2026-03-08T01:23:44.900000+00:00",
-      "data": {
-        "distance_m": 1.2,
-        "status": "ok"
-      }
-    },
-    "ultra_rear": {
-      "sensor": "ultra_rear",
-      "ts": "2026-03-08T01:23:44.850000+00:00",
-      "data": {
-        "distance_m": 1.7,
-        "status": "ok"
-      }
-    }
+    "ultra_front": 1.2,
+    "ultra_rear": 1.7
   }
 }
 ```
@@ -59,7 +46,7 @@
 ### 요청 예시
 
 ```http
-POST /api/events HTTP/1.1
+POST /api/ai/events HTTP/1.1
 Content-Type: application/json
 
 {
@@ -82,6 +69,7 @@ Content-Type: application/json
     "zone_id": "",
     "inside": false
   },
+  "sensor_status": "OK",
   "sensors": {}
 }
 ```

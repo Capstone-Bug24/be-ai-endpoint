@@ -16,7 +16,7 @@ flowchart LR
         A1["Frame ingest"]
         A2["Inference / sensor fusion"]
         A3["Event build"]
-        A4["POST /api/events"]
+        A4["POST /api/ai/events"]
         A5["Local spool fallback"]
         A1 --> A2 --> A3 --> A4
         A4 -. send failure .-> A5

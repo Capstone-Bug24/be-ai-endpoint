@@ -22,3 +22,4 @@
 
 - Active code path is `src/capruntime`.
 - Shared team interface source of truth is `docs/shared/team_contract.md`.
+- Optional offline visualization helper: `scripts/visualize_file_inference.py`.

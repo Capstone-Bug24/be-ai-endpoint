@@ -43,7 +43,7 @@ Purpose: verify pipeline continues while backend is unavailable.
 
 ```bash
 cd ~/CapstoneProjects/be-ai-endpoint
-PYTHONPATH=src CR_BACKEND_URL=http://127.0.0.1:65500/api/events CR_DRY_RUN=false CR_SPOOL_FILE_PATH=outputs/spool/backend_down_demo.jsonl python -m capruntime --source-type file --video data/samples/sample.avi --loop --model-type mock --max-events 60
+PYTHONPATH=src CR_BACKEND_URL=http://127.0.0.1:65500/api/ai/events CR_DRY_RUN=false CR_SPOOL_FILE_PATH=outputs/spool/backend_down_demo.jsonl python -m capruntime --source-type file --video data/samples/sample.avi --loop --model-type mock --max-events 60
 ```
 
 Verify:

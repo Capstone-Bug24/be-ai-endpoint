@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
 from typing import Protocol
 
 import numpy as np
@@ -11,6 +13,17 @@ from .settings import ModelSettings
 class ModelRunner(Protocol):
     def infer(self, frame: np.ndarray, frame_index: int) -> list[dict]:
         ...
+
+
+def _ensure_ultralytics_config_dir() -> None:
+    config_dir = os.environ.get("YOLO_CONFIG_DIR")
+    if not config_dir:
+        base_dir = os.environ.get("CAPRUNTIME_TMP")
+        if not base_dir:
+            base_dir = r"C:\tmp" if os.name == "nt" else "/tmp"
+        config_dir = str(Path(base_dir) / "ultralytics")
+        os.environ["YOLO_CONFIG_DIR"] = config_dir
+    Path(config_dir).mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
@@ -27,7 +40,7 @@ class MockModelRunner:
         y1 = (frame_index * 5) % max(1, h - box_h)
         return [
             {
-                "event_type": "ZONE_INTRUSION",
+                "event_type": "DETECTION",
                 "object_type": "PERSON",
                 "severity": "LOW",
                 "confidence": max(self.score_threshold, 0.75),
@@ -46,9 +59,11 @@ class MockModelRunner:
 class YoloModelRunner:
     model_path: str
     score_threshold: float = 0.25
+    device: str | None = None
 
     def __post_init__(self) -> None:
         try:
+            _ensure_ultralytics_config_dir()
             from ultralytics import YOLO  # type: ignore
         except Exception as exc:
             raise ImportError(
@@ -57,7 +72,10 @@ class YoloModelRunner:
         self._model = YOLO(self.model_path)
 
     def infer(self, frame: np.ndarray, frame_index: int) -> list[dict]:
-        results = self._model.predict(frame, conf=self.score_threshold, verbose=False)
+        predict_kwargs = {"conf": self.score_threshold, "verbose": False}
+        if self.device:
+            predict_kwargs["device"] = self.device
+        results = self._model.predict(frame, **predict_kwargs)
         payloads: list[dict] = []
         for result in results:
             boxes = getattr(result, "boxes", None)
@@ -110,6 +128,7 @@ def create_model_runner(model: ModelSettings) -> ModelRunner:
         return YoloModelRunner(
             model_path=model.yolo_model_path,
             score_threshold=model.score_threshold,
+            device=model.device,
         )
     if model.type == "onnx":
         return OnnxModelRunner(

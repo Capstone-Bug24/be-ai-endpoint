@@ -76,6 +76,14 @@ PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam1_pending.jsonl python -m cap
 PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam2_pending.jsonl python -m capruntime --source-type rtsp --rtsp-url rtsp://127.0.0.1:8554/cam2 --camera-id cam02 --model-type mock --dry-run --output-jsonl outputs/cam2_events.jsonl --fps-limit 10
 ```
 
+### 6) Optional file visualization
+
+This helper is separate from the runtime pipeline, so it can be removed later without affecting event delivery.
+
+```bash
+python3 scripts/visualize_file_inference.py --video data/samples/sample.avi --output-video outputs/annotated.mp4 --model-type mock
+```
+
 ## Operations And Demo
 
 - shared team docs: `docs/shared/README.md`
