@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
@@ -24,6 +25,10 @@ from capruntime.visualization import (  # noqa: E402
     draw_quadrant_overlay,
     resolve_video_fps,
 )
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _parse_args() -> argparse.Namespace:
@@ -125,6 +130,7 @@ def main() -> int:
                 if source.is_live:
                     continue
                 break
+            frame_ts = _now_iso()
             frame = _resize_frame(frame, args.resize_width)
 
             detections = model_runner.infer(frame, frame_index)
@@ -143,6 +149,8 @@ def main() -> int:
                     camera_id=settings.camera_id,
                     detection=detection,
                     sensor_snapshot=sensors,
+                    frame_id=frame_index,
+                    frame_ts=frame_ts,
                 )
                 emitter.emit(event)
                 emitted += 1

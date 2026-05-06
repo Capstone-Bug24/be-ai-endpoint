@@ -5,20 +5,6 @@ from typing import Any
 from uuid import uuid4
 
 
-_SENSOR_STATUS_ORDER = {
-    "UNKNOWN": 0,
-    "OK": 1,
-    "NORMAL": 1,
-    "WARN": 2,
-    "WARNING": 2,
-    "ALERT": 3,
-    "DANGER": 3,
-    "ERROR": 4,
-    "OFFLINE": 4,
-    "CRITICAL": 4,
-}
-
-
 def _normalize_sensor_status(value: Any) -> str | None:
     if value is None:
         return None
@@ -32,12 +18,6 @@ def _normalize_sensor_status(value: Any) -> str | None:
     if text == "DANGER":
         return "ALERT"
     return text
-
-
-def _strongest_sensor_status(statuses: list[str]) -> str | None:
-    if not statuses:
-        return None
-    return max(statuses, key=lambda status: _SENSOR_STATUS_ORDER.get(status, 0))
 
 
 def _now_iso() -> str:
@@ -62,37 +42,90 @@ def _sensor_value(payload: Any) -> float | None:
     return None
 
 
-def _backend_sensor_payload(sensor_snapshot: dict[str, dict]) -> dict[str, float]:
-    # Current backend stores sensor_value as double precision, so send a numeric map.
-    sensors: dict[str, float] = {}
+def _infer_sensor_type(name: str) -> str:
+    text = name.lower()
+    if text.startswith("ultra"):
+        return "ultrasonic"
+    if "temp" in text:
+        return "temperature"
+    if "gas" in text:
+        return "gas"
+    return "generic"
+
+
+def _infer_unit(name: str, sensor_type: str) -> str:
+    text = sensor_type.lower()
+    if text == "ultrasonic":
+        return "m"
+    if text == "temperature":
+        return "celsius"
+    if text == "gas":
+        return "ppm"
+    if "distance" in name.lower():
+        return "m"
+    return ""
+
+
+def _sensor_status(payload: dict, value: float | None) -> str:
+    status = _normalize_sensor_status(payload.get("status"))
+    if status is not None:
+        return status
+
+    data = payload.get("data")
+    if isinstance(data, dict):
+        status = _normalize_sensor_status(data.get("status"))
+        if status is not None:
+            return status
+
+    return "OK" if value is not None else "UNKNOWN"
+
+
+def _event_sensor_payload(
+    sensor_snapshot: dict[str, dict],
+    status_overrides: dict[str, str],
+) -> dict[str, dict[str, Any]]:
+    sensors: dict[str, dict[str, Any]] = {}
     for name, payload in sensor_snapshot.items():
+        if not isinstance(payload, dict):
+            payload = {"data": payload}
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            data = {}
+
         value = _sensor_value(payload)
-        if value is not None:
-            sensors[name] = value
+        sensor_type = str(payload.get("type") or data.get("type") or _infer_sensor_type(name)).strip().lower()
+        unit = str(payload.get("unit") or data.get("unit") or _infer_unit(name, sensor_type))
+        status = _normalize_sensor_status(status_overrides.get(name)) or _sensor_status(payload, value)
+        sensors[name] = {
+            "id": str(payload.get("id") or data.get("id") or name),
+            "type": sensor_type,
+            "ts": payload.get("ts") or data.get("ts"),
+            "status": status,
+            "unit": unit,
+            "value": value,
+        }
     return sensors
 
 
-def _sensor_status(sensor_snapshot: dict[str, dict]) -> str:
-    statuses: list[str] = []
-    for payload in sensor_snapshot.values():
-        if not isinstance(payload, dict):
-            continue
-        status = _normalize_sensor_status(payload.get("status"))
-        if status is not None:
-            statuses.append(status)
+def _reason_from_detection(detection: dict[str, Any], zone: dict[str, Any]) -> dict[str, list[str] | str]:
+    reason = detection.get("reason")
+    if isinstance(reason, dict):
+        code = str(reason.get("code") or detection.get("event_type", "DETECTION"))
+        raw_factors = reason.get("factors", [])
+    else:
+        code = str(detection.get("reason_code") or detection.get("event_type", "DETECTION"))
+        raw_factors = detection.get("reason_factors", detection.get("factors", []))
 
-        data = payload.get("data")
-        if isinstance(data, dict):
-            status = _normalize_sensor_status(data.get("status"))
-            if status is not None:
-                statuses.append(status)
-
-    strongest = _strongest_sensor_status(statuses)
-    if strongest is not None:
-        return strongest
-    if sensor_snapshot:
-        return "OK"
-    return "UNKNOWN"
+    factors = [str(item) for item in raw_factors if str(item).strip()] if isinstance(raw_factors, list) else []
+    if not factors:
+        if str(detection.get("object_type", "")).upper() == "PERSON":
+            factors.append("PERSON_DETECTED")
+        if bool(zone.get("inside", False)):
+            factors.append("ZONE_INTRUSION")
+        event_type = str(detection.get("event_type", "DETECTION")).upper()
+        if event_type != "DETECTION":
+            factors.append(event_type)
+    return {"code": code, "factors": factors}
 
 
 def build_event(
@@ -100,17 +133,26 @@ def build_event(
     camera_id: str,
     detection: dict[str, Any],
     sensor_snapshot: dict[str, dict],
+    frame_id: int | None = None,
+    frame_ts: str | None = None,
 ) -> dict[str, Any]:
+    event_ts = _now_iso()
     bbox = detection.get("bbox", {})
     zone = detection.get("zone")
     if not isinstance(zone, dict):
         zone = {"zone_id": "", "inside": False}
+    sensor_status_overrides = detection.get("sensor_status_overrides", {})
+    if not isinstance(sensor_status_overrides, dict):
+        sensor_status_overrides = {}
     return {
         "event_id": str(uuid4()),
-        "ts": _now_iso(),
+        "ts": event_ts,
         "site_id": site_id,
         "camera_id": camera_id,
+        "frame_id": detection.get("frame_id", frame_id),
+        "frame_ts": str(detection.get("frame_ts") or frame_ts or event_ts),
         "event_type": detection.get("event_type", "DETECTION"),
+        "event_status": str(detection.get("event_status", "ACTIVE")),
         "object_type": detection.get("object_type", "OBJECT"),
         "severity": detection.get("severity", "LOW"),
         "track_id": detection.get("track_id"),
@@ -125,6 +167,6 @@ def build_event(
             "zone_id": str(zone.get("zone_id", "")),
             "inside": bool(zone.get("inside", False)),
         },
-        "sensor_status": str(detection.get("sensor_status") or _sensor_status(sensor_snapshot)),
-        "sensors": _backend_sensor_payload(sensor_snapshot),
+        "reason": _reason_from_detection(detection, zone),
+        "sensors": _event_sensor_payload(sensor_snapshot, status_overrides=sensor_status_overrides),
     }

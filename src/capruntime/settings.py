@@ -53,6 +53,9 @@ class ModelSettings:
 class SensorSettings:
     name: str
     type: str = "constant"  # constant | jsonl
+    sensor_id: str | None = None
+    sensor_type: str = "generic"
+    unit: str | None = None
     interval_sec: float = 1.0
     constant_value: float = 0.0
     jsonl_path: str | None = None
@@ -266,6 +269,9 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
             SensorSettings(
                 name=name,
                 type=str(item.get("type", "constant")).strip().lower(),
+                sensor_id=item.get("id") or item.get("sensor_id"),
+                sensor_type=str(item.get("sensor_type", item.get("kind", "generic"))).strip().lower(),
+                unit=item.get("unit"),
                 interval_sec=float(item.get("interval_sec", 1.0)),
                 constant_value=float(item.get("constant_value", 0.0)),
                 jsonl_path=item.get("jsonl_path"),

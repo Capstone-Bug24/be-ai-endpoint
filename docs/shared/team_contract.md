@@ -23,8 +23,11 @@
 - `confidence`: 실수
 - `bbox`: `x1`, `y1`, `x2`, `y2` 정수 필드
 - `zone`: `zone_id`, `inside` 필드를 가진 객체
-- `sensor_status`: 센서 전체 상태 요약 (`OK`, `WARN`, `ALERT`, `CRITICAL`, `UNKNOWN`)
-- `sensors`: 센서 이름을 키로 가지는 숫자값 객체
+- `frame_id`: 카메라 프레임 번호
+- `frame_ts`: 프레임 수집 시각, UTC ISO8601 문자열
+- `event_status`: 이벤트 처리 상태 (`ACTIVE`, `ACKED`, `RESOLVED`, `FALSE_POSITIVE`)
+- `reason`: 영상, 구역, 센서를 종합한 상황 판단 근거 객체
+- `sensors`: 센서 이름을 키로 가지는 객체 map. 각 센서 객체 안에 `id`, `type`, `ts`, `status`, `unit`, `value`를 둔다.
 
 ## AI/Runtime
 
@@ -146,7 +149,7 @@
 ### AI가 넘기는 출력
 
 - 직접 제어 출력은 없다.
-- AI Runtime은 최신 센서 숫자값을 이벤트의 `sensors` 필드에 반영하고, 상태 요약은 `sensor_status` 상단 필드에 반영한다.
+- AI Runtime은 최신 센서 스냅샷을 이벤트의 `sensors` 필드에 반영한다. 센서 상태는 각 센서 객체의 `status`에만 둔다.
 
 ### 오해하기 쉬운 비범위
 

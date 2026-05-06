@@ -14,6 +14,7 @@ def test_load_settings_from_yaml(tmp_path: Path, sample_video: Path) -> None:
         "runtime": {"site_id": "SITE-X", "camera_id": "cam-x", "dry_run": True},
         "source": {"type": "file", "file_path": str(sample_video)},
         "model": {"type": "mock"},
+        "sensors": [{"name": "ultra_front", "id": "ultra_front_01", "sensor_type": "ultrasonic", "unit": "m"}],
     }
     cfg.write_text(
         yaml.safe_dump(cfg_data, sort_keys=False),
@@ -25,6 +26,9 @@ def test_load_settings_from_yaml(tmp_path: Path, sample_video: Path) -> None:
     assert settings.camera_id == "cam-x"
     assert settings.source.file_path == str(sample_video)
     assert settings.model.type == "mock"
+    assert settings.sensors[0].sensor_id == "ultra_front_01"
+    assert settings.sensors[0].sensor_type == "ultrasonic"
+    assert settings.sensors[0].unit == "m"
 
 
 def test_model_device_override(tmp_path: Path, sample_video: Path) -> None:

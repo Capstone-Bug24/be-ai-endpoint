@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 import time
 
@@ -12,6 +13,10 @@ from .settings import RuntimeSettings
 from .video import VideoSource, create_video_source
 
 logger = logging.getLogger(__name__)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class CameraRuntime:
@@ -66,6 +71,7 @@ class CameraRuntime:
                         time.sleep(0.05)
                         continue
                     break
+                frame_ts = _now_iso()
 
                 detections = self.model_runner.infer(frame, frame_index)
                 sensors = self.sensor_hub.snapshot()
@@ -82,6 +88,8 @@ class CameraRuntime:
                         camera_id=self.settings.camera_id,
                         detection=detection,
                         sensor_snapshot=sensors,
+                        frame_id=frame_index,
+                        frame_ts=frame_ts,
                     )
                     self.emitter.emit(event)
                     emitted += 1

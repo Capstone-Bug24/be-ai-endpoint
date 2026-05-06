@@ -30,7 +30,7 @@ def test_runtime_emits_events_to_jsonl(sample_video: Path, tmp_path: Path) -> No
         source=SourceSettings(type="file", file_path=str(sample_video), loop=False),
         model=ModelSettings(type="mock"),
         sensors=[],
-        backend=BackendSettings(url="http://127.0.0.1:9999/api/events", timeout_sec=0.2),
+        backend=BackendSettings(url="http://127.0.0.1:9999/api/ai/events", timeout_sec=0.2),
         spool=SpoolSettings(file_path=str(tmp_path / "spool.jsonl"), flush_batch=100),
     )
 
@@ -40,4 +40,7 @@ def test_runtime_emits_events_to_jsonl(sample_video: Path, tmp_path: Path) -> No
     events = _read_jsonl(out_file)
     assert len(events) == 5
     assert events[0]["camera_id"] == "cam01"
+    assert events[0]["frame_id"] == 0
+    assert events[0]["event_status"] == "ACTIVE"
+    assert "reason" in events[0]
     assert "sensors" in events[0]

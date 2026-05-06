@@ -24,8 +24,18 @@ def test_backend_down_events_are_spooled(sample_video: Path, tmp_path: Path) -> 
         output_jsonl=None,
         source=SourceSettings(type="file", file_path=str(sample_video), loop=False),
         model=ModelSettings(type="mock"),
-        sensors=[SensorSettings(name="s1", type="constant", interval_sec=0.01, constant_value=1.0)],
-        backend=BackendSettings(url="http://127.0.0.1:65500/api/events", timeout_sec=0.05),
+        sensors=[
+            SensorSettings(
+                name="s1",
+                type="constant",
+                sensor_id="sensor_01",
+                sensor_type="generic",
+                unit="",
+                interval_sec=0.01,
+                constant_value=1.0,
+            )
+        ],
+        backend=BackendSettings(url="http://127.0.0.1:65500/api/ai/events", timeout_sec=0.05),
         spool=SpoolSettings(file_path=str(spool_file), flush_batch=50),
     )
 

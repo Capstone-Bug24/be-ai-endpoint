@@ -27,10 +27,16 @@ model:
 sensors:
   - name: "ultra_front"
     type: "constant"
+    id: "ultra_front_01"
+    sensor_type: "ultrasonic"
+    unit: "m"
     interval_sec: 0.2
     constant_value: 1.5
   - name: "ultra_rear"
     type: "constant"
+    id: "ultra_rear_01"
+    sensor_type: "ultrasonic"
+    unit: "m"
     interval_sec: 0.4
     constant_value: 2.2
 

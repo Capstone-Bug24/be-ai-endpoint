@@ -53,8 +53,19 @@ class JsonlReplaySensor:
 
 
 class SensorWorker:
-    def __init__(self, name: str, reader: SensorReader, interval_sec: float) -> None:
+    def __init__(
+        self,
+        name: str,
+        reader: SensorReader,
+        interval_sec: float,
+        sensor_id: str | None = None,
+        sensor_type: str = "generic",
+        unit: str | None = None,
+    ) -> None:
         self._name = name
+        self._sensor_id = sensor_id or name
+        self._sensor_type = sensor_type
+        self._unit = unit
         self._reader = reader
         self._interval = max(0.01, interval_sec)
         self._stop = threading.Event()
@@ -78,9 +89,13 @@ class SensorWorker:
                     with self._lock:
                         self._latest = {
                             "sensor": self._name,
+                            "id": self._sensor_id,
+                            "type": self._sensor_type,
                             "ts": _now_iso(),
                             "data": payload,
                         }
+                        if self._unit is not None:
+                            self._latest["unit"] = self._unit
             except Exception:
                 self._errors += 1
             time.sleep(self._interval)
@@ -116,6 +131,9 @@ class SensorHub:
                     name=cfg.name,
                     reader=reader,
                     interval_sec=cfg.interval_sec,
+                    sensor_id=cfg.sensor_id,
+                    sensor_type=cfg.sensor_type,
+                    unit=cfg.unit,
                 )
             )
 

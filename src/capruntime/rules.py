@@ -21,7 +21,6 @@ _SENSOR_STATUS_BY_SEVERITY = {
     "CRITICAL": "CRITICAL",
 }
 
-
 def _stronger_severity(left: str, right: str) -> str:
     left_text = str(left or "LOW").upper()
     right_text = str(right or "LOW").upper()
@@ -112,6 +111,8 @@ def evaluate_sensor_rules(
                     "value": value,
                     "event_type": rule.event_type,
                     "severity": rule.severity,
+                    "factor": f"{rule.sensor.upper()}_ALERT",
+                    "status": _SENSOR_STATUS_BY_SEVERITY.get(str(rule.severity).upper(), "ALERT"),
                 }
             )
     return hits
@@ -134,19 +135,31 @@ def apply_runtime_rules(
             strongest_sensor_hit = hit
 
     out: list[dict] = []
+    sensor_status_overrides = {str(hit["sensor"]): str(hit["status"]) for hit in sensor_hits}
+    sensor_factors = [str(hit["factor"]) for hit in sensor_hits]
     for detection in detections:
         enriched = dict(detection)
+        reason_factors = [str(item) for item in enriched.get("reason_factors", [])]
+        if str(enriched.get("object_type", "")).upper() == "PERSON" and "PERSON_DETECTED" not in reason_factors:
+            reason_factors.append("PERSON_DETECTED")
         zone = _matching_zone(enriched, frame.shape, danger_zones)
         if zone is not None:
             enriched["event_type"] = "ZONE_INTRUSION"
             enriched["severity"] = _stronger_severity(enriched.get("severity", "LOW"), zone.severity)
             enriched["zone"] = {"zone_id": zone.zone_id, "inside": True}
+            if "ZONE_INTRUSION" not in reason_factors:
+                reason_factors.append("ZONE_INTRUSION")
 
         if strongest_sensor_hit is not None:
             if str(enriched.get("event_type", "DETECTION")).upper() == "DETECTION":
                 enriched["event_type"] = str(strongest_sensor_hit["event_type"])
             enriched["severity"] = _stronger_severity(enriched.get("severity", "LOW"), str(strongest_sensor_hit["severity"]))
-            enriched["sensor_status"] = _SENSOR_STATUS_BY_SEVERITY.get(str(strongest_sensor_hit["severity"]).upper(), "WARN")
+            for factor in sensor_factors:
+                if factor not in reason_factors:
+                    reason_factors.append(factor)
+            enriched["sensor_status_overrides"] = sensor_status_overrides
+        enriched["reason_code"] = str(enriched.get("event_type", "DETECTION")).upper()
+        enriched["reason_factors"] = reason_factors
         out.append(enriched)
 
     if not out and strongest_sensor_hit is not None:
@@ -158,7 +171,9 @@ def apply_runtime_rules(
                 "confidence": 1.0,
                 "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0},
                 "track_id": None,
-                "sensor_status": _SENSOR_STATUS_BY_SEVERITY.get(str(strongest_sensor_hit["severity"]).upper(), "WARN"),
+                "reason_code": str(strongest_sensor_hit["event_type"]).upper(),
+                "reason_factors": sensor_factors,
+                "sensor_status_overrides": sensor_status_overrides,
             }
         )
     return out

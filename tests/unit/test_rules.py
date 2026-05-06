@@ -48,6 +48,8 @@ def test_sensor_threshold_rule_marks_close_distance() -> None:
             "value": 1.2,
             "event_type": "PROXIMITY_RISK",
             "severity": "HIGH",
+            "factor": "ULTRA_FRONT_ALERT",
+            "status": "ALERT",
         }
     ]
 
@@ -66,4 +68,6 @@ def test_sensor_only_rule_emits_risk_event() -> None:
     assert events[0]["event_type"] == "PROXIMITY_RISK"
     assert events[0]["object_type"] == "SENSOR"
     assert events[0]["severity"] == "HIGH"
-    assert events[0]["sensor_status"] == "ALERT"
+    assert events[0]["reason_code"] == "PROXIMITY_RISK"
+    assert events[0]["reason_factors"] == ["ULTRA_FRONT_ALERT"]
+    assert events[0]["sensor_status_overrides"] == {"ultra_front": "ALERT"}
