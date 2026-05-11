@@ -1,166 +1,200 @@
-# AI Runtime 팀 간 계약
+# AI Runtime Team Contract
 
-이 문서는 현재 시스템 기준의 공식 팀 간 계약 문서다. 공유 문서 간 충돌이 있으면 이 문서를 우선한다.
+This is the current cross-team contract for `be-ai-endpoint` after the 2026-05-11 local E2E alignment.
 
-## 공통
+## Common Rules
 
-- 카메라 단위 규칙: `camera_id`는 유일해야 하며, 카메라 1대당 AI Runtime 프로세스 1개를 사용한다.
-- 시간 표준: 이벤트와 센서 스냅샷의 시간은 UTC ISO8601 형식을 사용한다.
-- 환경변수 표준: 런타임 설정은 `CR_*` 계열만 사용한다.
-- 전달 신뢰성: 백엔드가 일시적으로 실패해도 런타임은 멈추지 않고, 전송 실패 이벤트는 로컬 spool에 남긴다.
-- 스트림과 센서 입력은 각각 Streaming 팀과 IoT 팀이 운영하지만, 이벤트 생성과 전송 시도는 AI Runtime 팀 책임이다.
+- Camera unit: one AI Runtime process owns exactly one camera.
+- Output unit: one analyzed frame produces one JSON payload.
+- Time format: all timestamps use UTC ISO8601 strings.
+- Send failure: backend send failures must not stop the runtime. Failed payloads go to the local spool.
+- Sensor status: do not use top-level `sensor_status`. Each sensor object owns its own `status`.
+- Zone field: the official field is `detections[].zones[]`. The old singular `zone` field is a compatibility representative only.
 
-### 이벤트 최소 계약
+## POST /api/ai/events Payload
 
-- `event_id`: 문자열 UUID
-- `ts`: UTC ISO8601 문자열
-- `site_id`: 문자열
-- `camera_id`: 문자열
-- `event_type`: 문자열
-- `object_type`: 문자열
-- `severity`: 문자열
-- `track_id`: 문자열, 정수, 또는 `null`
-- `confidence`: 실수
-- `bbox`: `x1`, `y1`, `x2`, `y2` 정수 필드
-- `zone`: `zone_id`, `inside` 필드를 가진 객체
-- `frame_id`: 카메라 프레임 번호
-- `frame_ts`: 프레임 수집 시각, UTC ISO8601 문자열
-- `event_status`: 이벤트 처리 상태 (`ACTIVE`, `ACKED`, `RESOLVED`, `FALSE_POSITIVE`)
-- `reason`: 영상, 구역, 센서를 종합한 상황 판단 근거 객체
-- `sensors`: 센서 이름을 키로 가지는 객체 map. 각 센서 객체 안에 `id`, `type`, `ts`, `status`, `unit`, `value`를 둔다.
+Required top-level fields:
 
-## AI/Runtime
+- `analysis_id`: UUID for one frame analysis payload
+- `ts`: payload creation timestamp
+- `site_id`: site/location ID
+- `camera_id`: camera ID
+- `frame_id`: frame number from this camera stream
+- `frame_ts`: timestamp of the video frame
+- `frame_width`: original frame width
+- `frame_height`: original frame height
+- `detections`: visual detections in this frame
+- `sensors`: sensor snapshot map at decision time
+- `alerts`: rule-engine decisions for this frame
 
-### 해야 할 제공물
+## Field Cardinality
 
-- 다른 팀이 참고할 수 있는 이벤트 계약 문서
-- 스트림과 센서 입력 계약이 이벤트로 어떻게 반영되는지에 대한 설명
-- 백엔드 실패 시 spool fallback이 동작한다는 운영 계약
+| Field | Cardinality | Contract |
+|---|---:|---|
+| `analysis_id` | 1 | ID for one frame analysis payload |
+| `detections[]` | 0..N | Objects in the same frame; multiple people can be sent together |
+| `detections[].bbox` | 1 | One bbox per detection |
+| `detections[].zones[]` | 0..N | Zones containing this detection; supports overlapping polygon/compound zones |
+| `detections[].zone` | 0..1 | Legacy/compat representative zone. New consumers should use `zones[]` |
+| `detections[].event_type` | 1 | Representative detection decision. Multiple situations should be expressed as multiple `alerts[]` entries |
+| `sensors` | 0..N map | Snapshot keyed by sensor name |
+| `sensors.*.zone_ids[]` | 0..N | Optional zones monitored by this sensor |
+| `alerts[]` | 0..N | Situation decisions; backend alarm storage should use this |
+| `alerts[].object_refs[]` | 0..N | Related `detection_id` values |
+| `alerts[].sensor_refs[]` | 0..N | Related sensor keys |
+| `alerts[].zone_refs[]` | 0..N | Related zone IDs |
+| `alerts[].message` | 1 | Human-readable display text generated from structured alert fields |
+| `reason.factors[]` | 0..N | Decision evidence factors |
 
-### AI가 기대하는 입력
+## detections[]
 
-- Streaming 팀이 제공하는 `camera_id`별 RTSP URL과 운영 정보
-- IoT 팀이 제공하는 센서 이름, 주기, stale 기준, JSON 객체 payload
-- Backend 팀이 제공하는 `POST /api/ai/events`와 응답 의미
+Each detection is the basic unit for drawing a bbox.
 
-### AI가 넘기는 출력
+- `detection_id`: unique detection ID, for example `{analysis_id}:det-1`
+- `object_type`: `PERSON`, `HELMET`, `FORKLIFT`, `SENSOR`, etc.
+- `confidence`: model confidence
+- `track_id`: tracking ID; `null` when tracking is not active
+- `bbox`: `{ x1, y1, x2, y2 }` in original frame coordinates
+- `zones`: array of zone objects, for example `[{ zone_id, inside, zone_type }]`
+- `zone`: compatibility representative zone. Backend/frontend should prefer `zones[]`
+- `event_type`: representative detection decision, for example `DETECTION`, `ZONE_INTRUSION`, `PROXIMITY_RISK`
+- `severity`: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
+- `reason`: `{ code, factors[] }`
 
-- 이벤트 1건당 JSON 1개를 `POST /api/ai/events`로 전송 시도
-- 전송 실패 시 로컬 spool에 남겨두고 이후 성공 시 재전송 시도
-- 이벤트 본문에는 영상 기반 detection 정보와 최신 센서 스냅샷 포함
+## sensors
 
-### 오해하기 쉬운 비범위
+`sensors` is a map keyed by sensor name. `zone_ids` is optional and represents the video zones monitored by that sensor.
 
-- 스트리밍 서버 운영
-- 센서 하드웨어 운영
-- 백엔드 저장 구조와 정책 엔진
-- 최종 사용자 알림 전파
-- 프론트엔드 화면 구성
+```json
+{
+  "ultra_front": {
+    "id": "ultra_front_01",
+    "type": "ultrasonic",
+    "ts": "2026-05-11T12:00:00.050Z",
+    "status": "ALERT",
+    "unit": "m",
+    "value": 1.5,
+    "zone_ids": ["danger_q2", "forklift_lane"]
+  }
+}
+```
 
-## Frontend
+Allowed sensor status values: `OK`, `WARN`, `ALERT`, `CRITICAL`, `STALE`, `OFFLINE`, `UNKNOWN`.
 
-### 해야 할 제공물
+## alerts[]
 
-- 이벤트 타입과 화면 라벨 매핑 표
-- stale 데이터 경고 기준과 이벤트 지연 표시 기준
-- `event_id` 기반 렌더링 키 사용 규칙
+`alerts[]` is the final situation-decision array for backend alarm storage and frontend warning display.
 
-### AI가 기대하는 입력
+- `alert_id`: unique alert ID
+- `event_type`: `ZONE_INTRUSION`, `PROXIMITY_RISK`, etc.
+- `event_status`: `ACTIVE`, `ACKED`, `RESOLVED`, `FALSE_POSITIVE`
+- `severity`: alert severity
+- `object_refs`: related detection IDs
+- `sensor_refs`: related sensor keys
+- `zone_refs`: related zone IDs
+- `message`: display text for frontend/admin screens
+- `reason`: `{ code, factors[] }`
 
-- 직접 실행 입력은 없다.
-- 다만 프론트엔드는 이벤트 지연, 이벤트 없음, 백엔드 재연결 구간을 어떻게 표시할지 합의 문서로 공유한다.
+If multiple risk situations happen in one frame, create multiple `alerts[]` entries. Do not add an `event_type[]` array inside a detection.
+Do not use `message` as the only stored source of truth. Backend search, statistics, filtering, and legal/evidence records should rely on `event_type`, `severity`, refs, and `reason`.
 
-### AI가 넘기는 출력
+## Timestamp Contract
 
-- 직접 전송 출력은 없다.
-- 프론트는 백엔드를 통해 데이터를 받지만, 화면 설계는 AI Runtime이 생성하는 이벤트 스키마를 기준으로 맞춘다.
+- `frame_ts`: video-frame timestamp. Frontend video/bbox alignment should use this.
+- `ts`: AI payload creation timestamp.
+- `sensors.*.ts`: sensor reading timestamp or latest update timestamp.
 
-### 오해하기 쉬운 비범위
+Frontend alignment should use `camera_id + frame_id + frame_ts`.
 
-- AI Runtime은 프론트 정책 UI나 시각화 로직을 소유하지 않는다.
-- 프론트는 AI Runtime에서 직접 영상을 받는다고 가정하지 않는다.
+## Current Rule Baseline
 
-## Backend
+The current rule engine is a baseline, not final industrial safety logic.
 
-### 해야 할 제공물
+- Zone rules currently support quadrant settings.
+- If one detection matches multiple configured zones, all matches are emitted in `zones[]`.
+- Current zone intrusion uses the PERSON bbox center point.
+- Sensor thresholds can raise alerts such as `PROXIMITY_RISK`.
+- Sensor-only analysis can be emitted when there is sensor risk without visual detection.
 
-- `POST /api/ai/events` 엔드포인트
-- `2xx`와 `non-2xx`의 의미가 분명한 응답 계약
-- `event_id` 기준 멱등 처리 규칙
-- 프론트와 공유할 이벤트 타입 사전
+Future improvements:
 
-### AI가 기대하는 입력
+- Define real risk zones as polygons, not quadrants.
+- Use bottom-center/foot point or polygon overlap ratio instead of bbox center.
+- Verify that `alerts[].object_refs[]` points only to the actually risky objects when multiple people appear together.
+- Map sensor direction/location to video zones so one sensor alert is not blindly attached to every detection.
 
-- 요청 1건당 이벤트 JSON 1개를 받을 API
-- 성공은 `2xx`, 재시도 필요는 `non-2xx`로 해석 가능한 상태코드
-- 장애 시점에도 요청 실패를 명확히 알 수 있는 동작
+## Team Responsibilities
 
-### AI가 넘기는 출력
+### AI Runtime
 
-- 이벤트 JSON 1건
-- `event_id`, `camera_id`, detection 정보, 센서 스냅샷이 포함된 payload
-- 백엔드가 복구되면 backlog를 다시 보내는 전송 시도
+- Read video frames
+- Run model inference
+- Reflect sensor snapshots
+- Build frame analysis payloads
+- Send `POST /api/ai/events`
+- Spool unsent payloads on backend failure
 
-### 오해하기 쉬운 비범위
+AI Runtime does not own final DB schema, user notification policy, or frontend UI.
 
-- AI Runtime은 DB 스키마, 보관 정책, 최종 알림 정책을 결정하지 않는다.
-- Backend는 모델 추론이나 센서 하드웨어 수집을 담당하지 않는다.
+### Backend
 
-## Streaming
+Backend should provide:
 
-### 해야 할 제공물
+- `POST /api/ai/events` endpoint
+- Meaning of `2xx` and non-`2xx` responses
+- Idempotency policy based on `analysis_id`
+- Storage policy for frame analysis, detections, detection zones, alerts, and sensor snapshots
 
-- 카메라별 RTSP URL 레지스트리
-- 코덱, FPS, 해상도 정보
-- 스트림 헬스체크 방법과 재기동 절차
-- `camera_id`와 실제 카메라 매핑 정보
+Recommended DB shape:
 
-### AI가 기대하는 입력
+- `frame_analysis`: `analysis_id`, `site_id`, `camera_id`, `frame_id`, `frame_ts`, `ts`, frame size
+- `detections`: `detection_id`, `analysis_id`, object/bbox/confidence
+- `detection_zones`: `detection_id`, `zone_id`, inside, zone_type, or `detections.zones` JSONB
+- `alerts`: `alert_id`, `analysis_id`, event_type/severity/status/reason, `zone_refs`
+- `sensor_snapshots`: `analysis_id`, sensor key, sensor object
 
-- 안정적으로 접속 가능한 RTSP URL
-- 일시 단절 후 동일 URL로 복구 가능한 운영 방식
-- 카메라 추가 시 같은 규칙으로 확장 가능한 레지스트리
+If the existing tables stay, unpack `detections[]` and `detections[].zones[]` into multiple rows or JSONB.
 
-### AI가 넘기는 출력
+### Frontend
 
-- 직접 데이터 출력은 없다.
-- AI Runtime은 어떤 `camera_id`를 어떤 스트림으로 소비하는지만 계약으로 고정하며, 스트림 장애 시 운영 이슈를 공유한다.
+Frontend should consume:
 
-### 오해하기 쉬운 비범위
+- Latest frame analysis or frame analysis history
+- Multiple bbox entries from `detections[]`
+- Multiple zone labels/colors from `detections[].zones[]`
+- Risk state from `alerts[]`
+- Stale/disconnected state rules
 
-- Streaming 팀은 추론 결과나 이벤트 스키마를 소유하지 않는다.
-- AI Runtime은 RTSP 서버의 배포와 운영을 대신하지 않는다.
+Frontend should not command AI Runtime directly; it should read backend or event-bridge data.
 
-## IoT
+### Streaming
 
-### 해야 할 제공물
+Streaming should provide:
 
-- 센서 카탈로그: 이름, 타입, 단위, `interval_sec`
-- stale 판단 기준
-- 센서별 JSON 객체 payload 예시
-- 장애 의미 정의: `null`, stale, 범위 초과 등
+- Stable stream URL per `camera_id`
+- Codec, fps, and resolution
+- Stream healthcheck method
+- Frame timestamp source, or a structure that lets AI read the same frame timeline
 
-### AI가 기대하는 입력
+In operation, frontend and AI must not watch unrelated playback positions for the same camera.
 
-- 카메라 프로세스 단위에서 유일한 센서 이름
-- 문자열이 아닌 JSON 객체 payload
-- 센서별 예상 주기와 stale 기준
+### IoT
 
-### AI가 넘기는 출력
+IoT should provide:
 
-- 직접 제어 출력은 없다.
-- AI Runtime은 최신 센서 스냅샷을 이벤트의 `sensors` 필드에 반영한다. 센서 상태는 각 센서 객체의 `status`에만 둔다.
+- Sensor name, ID, type, unit
+- Measurement interval
+- Stale/offline rule
+- JSON payload examples
+- Sensor location/direction to video-zone mapping
+- `zone_ids[]` when one sensor monitors one or more zones
 
-### 오해하기 쉬운 비범위
+## Sign-off Checklist
 
-- IoT 팀은 이벤트 생성 로직이나 백엔드 저장 정책을 소유하지 않는다.
-- AI Runtime은 센서 하드웨어 상태 복구를 대신하지 않는다.
-
-## Sign-off
-
-- 공통: [ ] 합의 완료 / 담당:
-- AI/Runtime: [ ] 합의 완료 / 담당:
-- Frontend: [ ] 합의 완료 / 담당:
-- Backend: [ ] 합의 완료 / 담당:
-- Streaming: [ ] 합의 완료 / 담당:
-- IoT: [ ] 합의 완료 / 담당:
+- [ ] Backend: accepts `analysis_id + detections[] + detections[].zones[] + sensors + alerts[]`
+- [ ] Backend: defines duplicate handling based on `analysis_id`
+- [ ] Frontend: can draw multiple boxes from `detections[]`
+- [ ] Frontend: can display multiple zones from `zones[]`
+- [ ] Streaming: confirms `camera_id`, stream URL, fps, and resolution
+- [ ] IoT: confirms sensor catalog, status values, and `zone_ids[]`
+- [ ] AI: clearly shares that current zone/rule logic is baseline until final policy is decided

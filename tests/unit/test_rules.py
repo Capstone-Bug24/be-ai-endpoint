@@ -28,7 +28,38 @@ def test_quadrant_rule_marks_person_inside_zone() -> None:
 
     assert events[0]["event_type"] == "ZONE_INTRUSION"
     assert events[0]["severity"] == "MEDIUM"
-    assert events[0]["zone"] == {"zone_id": "danger_q1", "inside": True}
+    assert events[0]["zone"] == {"zone_id": "danger_q1", "inside": True, "zone_type": "quadrant"}
+    assert events[0]["zones"] == [{"zone_id": "danger_q1", "inside": True, "zone_type": "quadrant"}]
+
+def test_quadrant_rule_can_return_multiple_matching_zones() -> None:
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    detections = [
+        {
+            "event_type": "DETECTION",
+            "object_type": "PERSON",
+            "severity": "LOW",
+            "confidence": 0.9,
+            "bbox": {"x1": 70, "y1": 10, "x2": 90, "y2": 30},
+        }
+    ]
+
+    events = apply_runtime_rules(
+        detections=detections,
+        frame=frame,
+        sensor_snapshot={},
+        danger_zones=[
+            DangerZoneSettings(zone_id="danger_q1", quadrant=1, severity="MEDIUM"),
+            DangerZoneSettings(zone_id="forklift_lane", quadrant=1, severity="HIGH"),
+        ],
+        sensor_rules=[],
+    )
+
+    assert events[0]["severity"] == "HIGH"
+    assert events[0]["zones"] == [
+        {"zone_id": "danger_q1", "inside": True, "zone_type": "quadrant"},
+        {"zone_id": "forklift_lane", "inside": True, "zone_type": "quadrant"},
+    ]
+
 
 
 def test_sensor_threshold_rule_marks_close_distance() -> None:

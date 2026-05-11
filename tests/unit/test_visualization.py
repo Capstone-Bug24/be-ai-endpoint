@@ -17,10 +17,13 @@ def test_format_detection_label_includes_event_context() -> None:
             "confidence": 0.756,
             "event_type": "ZONE_INTRUSION",
             "severity": "HIGH",
-            "zone": {"zone_id": "danger_q2", "inside": True},
+            "zones": [
+                {"zone_id": "danger_q2", "inside": True},
+                {"zone_id": "forklift_lane", "inside": True},
+            ],
         }
     )
-    assert label == "PERSON 0.76 ZONE_INTRUSION HIGH danger_q2"
+    assert label == "PERSON 0.76 ZONE_INTRUSION HIGH danger_q2,forklift_lane"
 
 
 def test_resolve_video_fps_uses_default_for_invalid_values() -> None:

@@ -1,41 +1,40 @@
-# AI Runtime 팀 공유 문서
+﻿# AI Runtime Shared Docs
 
-이 디렉토리는 다른 팀이 처음 봐도 현재 시스템의 책임 경계와 데이터 계약을 이해할 수 있도록 만든 공용 문서 묶음이다.
+이 디렉터리는 AI Runtime과 다른 팀이 맞춰야 하는 공통 계약 문서 모음이다.
 
-## 한 줄 설명
+## 현재 기준
 
-AI Runtime은 스트리밍 영상과 IoT 센서를 입력으로 받아 추론과 융합을 수행하고, 감지 이벤트를 생성해 백엔드로 전달을 시도하며 실패 시 로컬 spool에 보관한다.
+현재 공식 출력 계약은 `POST /api/ai/events`로 보내는 frame analysis payload다.
 
-## 이 문서만 읽으면 알 수 있는 것
+```text
+1 analyzed frame = 1 JSON payload
+payload = analysis_id + detections[] + detections[].zones[] + sensors + alerts[]
+```
 
-- AI가 어디까지 책임지는가
-- 스트리밍 팀이 AI에 무엇을 제공해야 하는가
-- IoT 팀이 AI에 무엇을 제공해야 하는가
-- AI가 백엔드에 어떤 형태의 이벤트를 보내는가
-- 최종 알림 정책과 전파 책임이 누구에게 있는가
-- 이벤트 JSON과 센서 payload가 대략 어떤 모양인가
+기존 `event_id` 단건 이벤트 방식은 legacy 호환용으로만 본다.
 
 ## 읽는 순서
 
-1. [architecture.md](architecture.md)
-2. [team_contract.md](team_contract.md)
-3. [schema_examples.md](schema_examples.md)
-4. [glossary.md](glossary.md)
+1. [architecture.md](architecture.md): 시스템 경계와 데이터 흐름
+2. [team_contract.md](team_contract.md): 팀별 책임과 API 계약
+3. [schema_examples.md](schema_examples.md): 실제 JSON 예시
+4. [glossary.md](glossary.md): 용어 정리
 
 ## 책임 매트릭스
 
-`AI에 제공해야 할 것`은 각 팀이 AI Runtime과 맞춰야 하는 입력 또는 계약 정보를 뜻한다.
-
-| 팀 | 소유 | AI에 제공해야 할 것 | AI로부터 받는 것 | 범위 밖 |
+| Team | Owns | Must Provide To AI | Receives From AI | Out Of Scope For AI |
 |---|---|---|---|---|
-| AI/Runtime | 영상 소비, 센서 소비, 추론, 융합, 이벤트 생성, 백엔드 전송 시도, spool fallback | 해당 없음 | 이벤트 스키마, 실패 시 재시도 동작, 요구 입력 계약 | 스트리밍 소스 운영, 센서 하드웨어 운영, 백엔드 저장/정책, 최종 사용자 알림 전파, 프론트 시각화 |
-| Streaming | `camera_id`별 RTSP 스트림 운영 | RTSP URL, 코덱, FPS, 해상도, 헬스체크, 재기동 절차 | 어떤 `camera_id`를 어떤 스트림으로 소비하는지에 대한 고정 계약 | 추론, 이벤트 생성, 백엔드 저장 |
-| IoT | 센서 하드웨어 운영과 payload 송신 | 센서 이름, 단위, `interval_sec`, stale 기준, JSON 객체 payload 예시 | 센서 데이터가 이벤트의 `sensors` 필드에 반영된다는 계약 | 추론, 이벤트 생성, 최종 알림 |
-| Backend | 이벤트 수신, 저장, 정책 처리, 최종 알림 전파 | `POST /api/ai/events`, `2xx`/`non-2xx` 응답 의미, 멱등 처리 규칙 | 이벤트 요청 1건당 JSON 1개 | 모델 추론, 스트리밍 운영, 센서 운영 |
-| Frontend | 화면 렌더링, 상태 표시, 운영 UI | 직접 실행 입력은 없음. 단, `event_id` 사용과 stale 표시 기준을 합의 | 백엔드가 제공하는 이벤트/상태 데이터의 기반 계약 | 스트림 운영, 이벤트 생성, 최종 알림 정책 |
+| AI/Runtime | frame ingest, inference, sensor fusion, rule baseline, frame analysis payload, backend send, spool fallback | none | schema feedback, backend response contract, stream/sensor contracts | final DB schema, final user notification policy, frontend UI ownership |
+| Streaming | camera stream operation | `camera_id`, stream URL, codec, fps, resolution, healthcheck | which `camera_id` AI consumes | model inference, event schema, backend storage |
+| IoT | sensor hardware and payload | sensor names, IDs, type, unit, interval, stale/offline rules, JSON examples, sensor-to-zone mapping | sensor snapshot reflected in `sensors` | inference, alerts, backend storage |
+| Backend | receive/store frame analysis, policy, final alert delivery | `POST /api/ai/events`, response semantics, idempotency, storage contract | one frame analysis JSON per analyzed frame | model inference, stream operation, sensor hardware |
+| Frontend | render dashboard and operation UI | stale display rules, bbox/alert display needs | backend/event-bridge data based on frame analysis schema | stream operation, event generation, final backend policy |
 
-## 이 디렉토리의 역할
+## Important Alignment Points
 
-- 운영자용 런북이 아니라 팀 간 인터페이스 문서다.
-- 이 디렉토리만 따로 공유해도 핵심 문맥이 유지되도록 작성한다.
-- 내부 구현 이력보다 현재 시스템 기준의 계약과 예시에 집중한다.
+- Frontend must render multiple boxes from `detections[]`.
+- Backend should treat `analysis_id` as the top-level idempotency key.
+- `alerts[].object_refs` points to detection IDs, not raw bbox objects.
+- Sensor status stays inside each sensor object.
+- `frame_ts` is the video-frame timestamp; `ts` is payload creation time.
+- Zone/rule logic in the current runtime is baseline only; use `zones[]` because one detection can belong to multiple zones.

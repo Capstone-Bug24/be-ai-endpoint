@@ -1,6 +1,6 @@
-# be-ai-endpoint
+﻿# be-ai-endpoint
 
-Single-camera runtime for capstone delivery.
+Single-camera AI runtime for the capstone project.
 
 Python baseline: **3.11**
 
@@ -18,8 +18,8 @@ For cross-team coordination, start here first:
 - One process handles exactly one camera input.
 - One process can ingest multiple sensors concurrently.
 - Video source options: `rtsp`, `webcam`, `file`.
-- Model options (internal switch, no plugin loading): `mock`, `yolo`, `onnx`.
-- Output: backend API with resilient local spool queue.
+- Model options: `mock`, `yolo`, `onnx`.
+- Output: frame analysis JSON to backend API with resilient local spool queue.
 
 ## Runtime Topology
 
@@ -28,13 +28,24 @@ flowchart LR
     A["Video Source (rtsp|webcam|file)"] --> B["Main Loop"]
     S["Sensor Workers (N)"] --> C["Sensor Hub Snapshot"]
     B --> D["Model Runner (mock|yolo|onnx)"]
-    D --> E["Event Builder"]
+    D --> E["Rule Baseline"]
     C --> E
-    E --> F["Resilient Emitter"]
-    F --> G["Backend API"]
-    F --> H["Local Spool (on failure)"]
-    F --> I["JSONL (optional)"]
+    E --> F["Frame Analysis Builder"]
+    F --> G["Resilient Emitter"]
+    G --> H["Backend API"]
+    G --> I["Local Spool (on failure)"]
+    G --> J["JSONL (optional)"]
 ```
+
+## Output Contract
+
+Current output is one frame analysis JSON per analyzed frame:
+
+```text
+analysis_id + camera_id + frame_id/frame_ts + detections[] + detections[].zones[] + sensors + alerts[]
+```
+
+See `docs/shared/schema_examples.md` for the full JSON shape.
 
 ## Quick Start
 
@@ -78,10 +89,10 @@ PYTHONPATH=src CR_SPOOL_FILE_PATH=outputs/spool/cam2_pending.jsonl python -m cap
 
 ### 6) Optional file visualization
 
-This helper is separate from the runtime pipeline, so it can be removed later without affecting event delivery.
+This helper is separate from the runtime pipeline, so it can be removed later without affecting backend delivery.
 
 ```bash
-python3 scripts/visualize_file_inference.py --video data/samples/sample.avi --output-video outputs/annotated.mp4 --model-type mock
+python scripts/visualize_file_inference.py --video data/samples/sample.avi --output-video outputs/annotated.mp4 --model-type mock
 ```
 
 ## Operations And Demo
@@ -101,6 +112,7 @@ Use `.env.example` as the baseline (`CR_` prefix).
 
 - one process per camera verified
 - multi-sensor per process verified
+- frame analysis payload verified
 - backend outage to spool fallback verified
 - RTSP reconnect behavior documented
 - systemd operation template provided
@@ -111,8 +123,3 @@ Use `.env.example` as the baseline (`CR_` prefix).
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 python scripts/test_hygiene.py --strict --max-duplicate-groups 0 --max-no-assert 0 --max-trivial-assert-true 0
 ```
-
-## Legacy Status
-
-Previous implementation was removed from the active repository snapshot.
-Current repository content is runtime v2 only.

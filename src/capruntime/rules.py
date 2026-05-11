@@ -77,21 +77,21 @@ def _inside_quadrant(point: tuple[float, float], quadrant: int) -> bool:
     return False
 
 
-def _matching_zone(
+def _matching_zones(
     detection: dict,
     frame_shape: tuple[int, ...],
     danger_zones: list[DangerZoneSettings],
-) -> DangerZoneSettings | None:
+) -> list[DangerZoneSettings]:
     if str(detection.get("object_type", "")).upper() != "PERSON":
-        return None
+        return []
     point = _bbox_center_norm(detection, frame_shape)
     if point is None:
-        return None
+        return []
+    matches: list[DangerZoneSettings] = []
     for zone in danger_zones:
         if zone.type == "quadrant" and _inside_quadrant(point, zone.quadrant):
-            return zone
-    return None
-
+            matches.append(zone)
+    return matches
 
 def evaluate_sensor_rules(
     sensor_snapshot: dict[str, dict],
@@ -142,11 +142,16 @@ def apply_runtime_rules(
         reason_factors = [str(item) for item in enriched.get("reason_factors", [])]
         if str(enriched.get("object_type", "")).upper() == "PERSON" and "PERSON_DETECTED" not in reason_factors:
             reason_factors.append("PERSON_DETECTED")
-        zone = _matching_zone(enriched, frame.shape, danger_zones)
-        if zone is not None:
+        zones = _matching_zones(enriched, frame.shape, danger_zones)
+        if zones:
             enriched["event_type"] = "ZONE_INTRUSION"
-            enriched["severity"] = _stronger_severity(enriched.get("severity", "LOW"), zone.severity)
-            enriched["zone"] = {"zone_id": zone.zone_id, "inside": True}
+            for zone in zones:
+                enriched["severity"] = _stronger_severity(enriched.get("severity", "LOW"), zone.severity)
+            enriched["zones"] = [
+                {"zone_id": zone.zone_id, "inside": True, "zone_type": zone.type}
+                for zone in zones
+            ]
+            enriched["zone"] = enriched["zones"][0]
             if "ZONE_INTRUSION" not in reason_factors:
                 reason_factors.append("ZONE_INTRUSION")
 

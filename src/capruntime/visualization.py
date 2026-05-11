@@ -11,10 +11,20 @@ def format_detection_label(detection: Mapping[str, Any]) -> str:
     object_type = str(detection.get("object_type", "OBJECT")).strip() or "OBJECT"
     event_type = str(detection.get("event_type", "")).strip()
     severity = str(detection.get("severity", "")).strip()
-    zone = detection.get("zone", {})
-    zone_id = ""
-    if isinstance(zone, Mapping) and zone.get("inside"):
-        zone_id = str(zone.get("zone_id", "")).strip()
+    zones = detection.get("zones", [])
+    zone_ids: list[str] = []
+    if isinstance(zones, Sequence) and not isinstance(zones, (str, bytes)):
+        for zone in zones:
+            if isinstance(zone, Mapping) and zone.get("inside"):
+                zone_id = str(zone.get("zone_id", "")).strip()
+                if zone_id and zone_id not in zone_ids:
+                    zone_ids.append(zone_id)
+    if not zone_ids:
+        zone = detection.get("zone", {})
+        if isinstance(zone, Mapping) and zone.get("inside"):
+            zone_id = str(zone.get("zone_id", "")).strip()
+            if zone_id:
+                zone_ids.append(zone_id)
     confidence = detection.get("confidence")
     try:
         parts = [object_type, f"{float(confidence):.2f}"]
@@ -24,8 +34,8 @@ def format_detection_label(detection: Mapping[str, Any]) -> str:
         parts.append(event_type)
     if severity:
         parts.append(severity)
-    if zone_id:
-        parts.append(zone_id)
+    if zone_ids:
+        parts.append(",".join(zone_ids))
     return " ".join(parts)
 
 

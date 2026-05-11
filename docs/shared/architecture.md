@@ -1,59 +1,82 @@
-# AI Runtime 팀 경계도
+﻿# AI Runtime Boundary
 
-이 문서는 팀 간 경계와 데이터 흐름을 설명하는 대표 문서다.
+이 문서는 팀 사이의 책임 경계와 데이터 흐름을 설명한다.
 
 ```mermaid
 flowchart LR
-    subgraph Streaming["Streaming 팀"]
-        S1["RTSP stream per camera_id"]
+    subgraph Streaming["Streaming Team"]
+        S1["camera_id별 stream URL"]
+        S2["codec / fps / resolution / healthcheck"]
     end
 
-    subgraph IoT["IoT 팀"]
-        I1["Sensor payloads (JSON object)"]
+    subgraph IoT["IoT Team"]
+        I1["sensor payloads"]
+        I2["sensor catalog / stale rules"]
     end
 
-    subgraph AI["AI Runtime 팀"]
+    subgraph AI["AI Runtime"]
         A1["Frame ingest"]
-        A2["Inference / sensor fusion"]
-        A3["Event build"]
-        A4["POST /api/ai/events"]
-        A5["Local spool fallback"]
-        A1 --> A2 --> A3 --> A4
-        A4 -. send failure .-> A5
+        A2["Inference"]
+        A3["Sensor snapshot"]
+        A4["Rule baseline"]
+        A5["Build frame analysis"]
+        A6["POST /api/ai/events"]
+        A7["Local spool fallback"]
+        A1 --> A2 --> A4 --> A5 --> A6
+        A3 --> A4
+        A6 -. send failure .-> A7
     end
 
-    subgraph Backend["Backend 팀"]
-        B1["Event API"]
-        B2["Storage / policy / alert delivery"]
+    subgraph Backend["Backend"]
+        B1["Frame analysis API"]
+        B2["Storage / policy / final alerts"]
         B1 --> B2
     end
 
-    subgraph Frontend["Frontend 팀"]
-        F1["UI / dashboard"]
+    subgraph Frontend["Frontend"]
+        F1["Live monitor / dashboard"]
     end
 
     S1 --> A1
-    I1 --> A2
-    A4 --> B1
+    S2 --> A1
+    I1 --> A3
+    I2 --> A3
+    A6 --> B1
     B2 --> F1
 ```
 
 ## 핵심 문장
 
-- AI Runtime은 이벤트 생성까지 책임진다.
-- 최종 알림 정책과 최종 사용자 알림 전파는 백엔드 책임이다.
-- 프론트엔드는 AI Runtime에 직접 연결되는 것이 아니라, 백엔드가 제공하는 데이터와 상태를 기준으로 동작한다.
+- AI Runtime은 프레임 분석 payload 생성까지 책임진다.
+- Backend는 payload 저장, 중복 처리, 최종 알림 정책을 책임진다.
+- Frontend는 backend 또는 event bridge가 제공하는 frame analysis 데이터를 시각화한다.
+- Streaming은 안정적인 영상 입력과 camera metadata를 제공한다.
+- IoT는 센서 payload와 센서 의미를 제공한다.
 
-## 경계 요약
+## Output Contract
 
-- Streaming 팀 경계: 카메라별로 안정적인 RTSP 스트림을 제공하고 운영한다.
-- IoT 팀 경계: 센서 이름, 주기, stale 기준이 있는 JSON 객체 payload를 제공한다.
-- AI Runtime 팀 경계: 영상과 센서를 소비하고 추론/융합 후 이벤트를 생성해 백엔드에 전달한다.
-- Backend 팀 경계: 이벤트를 저장하고 정책을 적용하며 최종 알림을 전파한다.
-- Frontend 팀 경계: 상태와 이벤트를 시각화하고 운영 UI를 제공한다.
+AI Runtime의 현재 공식 출력은 `POST /api/ai/events`로 보내는 frame analysis JSON이다.
 
-## 문서 연결
+```text
+analysis_id
+camera_id
+frame_id / frame_ts
+detections[]
+sensors
+alerts[]
+```
 
-- 상세 계약: [team_contract.md](team_contract.md)
-- 예시 JSON과 표: [schema_examples.md](schema_examples.md)
-- 용어 설명: [glossary.md](glossary.md)
+객체 1개당 JSON 1개를 보내던 old event 방식은 legacy 호환용이다.
+
+## Runtime Reliability
+
+- Backend outage must not stop runtime.
+- Failed sends are stored in local spool.
+- Sensor failure must not stop camera loop.
+- RTSP reconnect should recover transient stream failure.
+
+## Linked Docs
+
+- Detailed contract: [team_contract.md](team_contract.md)
+- JSON examples: [schema_examples.md](schema_examples.md)
+- Glossary: [glossary.md](glossary.md)
