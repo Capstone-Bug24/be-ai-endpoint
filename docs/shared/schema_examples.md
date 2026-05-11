@@ -1,7 +1,6 @@
-# AI Runtime Shared Schema Examples
+# AI Runtime 공통 Schema 예시
 
-This document is the current shared API contract for `be-ai-endpoint`.
-The current contract is frame-based: one analyzed frame produces one JSON payload.
+이 문서는 `be-ai-endpoint`가 backend로 보내는 frame analysis JSON 예시를 제공한다. 현재 계약은 프레임 단위다. 분석된 프레임 1개는 JSON payload 1개로 전송한다.
 
 ## Frame Analysis JSON
 
@@ -148,60 +147,62 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
 }
 ```
 
-## Backend Request
+## Backend 요청
 
 ```http
 POST /api/ai/events HTTP/1.1
 Content-Type: application/json
 ```
 
-The request body is one frame analysis JSON object.
+요청 body는 frame analysis JSON object 1개다.
 
-- `analysis_id` identifies one analyzed frame payload.
-- `detections[]` contains zero or more visual detections for that frame.
-- `detections[].bbox` contains original-frame pixel coordinates.
-- `detections[].bbox_norm` contains normalized 0.0-1.0 coordinates for frontend overlays.
-- `zones[]` contains the zone definitions applied to this frame.
-- `zones[].points` contains original-frame pixel polygon coordinates.
-- `zones[].points_norm` contains normalized 0.0-1.0 polygon coordinates.
-- `sensors` is a snapshot map keyed by sensor name.
-- `sensors.*.zone_ids[]` is optional and maps sensors to one or more zones.
-- `alerts[]` contains rule results and references detections/sensors/zones by ID.
-- `alerts[].message` is display text. Search, stats, and storage logic should still use structured fields such as `event_type`, `severity`, refs, and `reason`.
-- `alerts[].evidence[]` is optional machine-readable evidence for the alert.
-- There is no top-level `sensor_status`. Each sensor has its own `status`.
+- `analysis_id`는 분석된 프레임 payload 1건을 구분한다.
+- `detections[]`는 같은 프레임에서 탐지한 객체 목록이다.
+- `detections[].bbox`는 원본 프레임 기준 pixel 좌표다.
+- `detections[].bbox_norm`은 0.0~1.0 범위의 정규화 좌표다. Frontend overlay 표시에는 이 값을 우선 사용한다.
+- `zones[]`는 해당 프레임에 적용된 zone 정의다.
+- `zones[].points`는 원본 프레임 기준 polygon pixel 좌표다.
+- `zones[].points_norm`은 0.0~1.0 범위의 정규화 polygon 좌표다.
+- `sensors`는 sensor 이름을 key로 사용하는 snapshot map이다.
+- `sensors.*.zone_ids[]`는 sensor가 감시하는 zone ID 목록이다. 선택 필드다.
+- `alerts[]`는 rule 결과이며, `detections[]`, `sensors`, `zones[]`를 ID로 참조한다.
+- `alerts[].message`는 화면 표시용 문장이다. 검색, 통계, 저장 로직은 `event_type`, `severity`, refs, `reason` 같은 구조화 필드를 우선 사용해야 한다.
+- `alerts[].evidence[]`는 선택적 machine-readable 판단 근거다.
+- 최상위 `sensor_status`는 사용하지 않는다. 각 sensor object가 자기 `status`를 가진다.
 
-The backend should return any `2xx` status for successful receipt. Non-`2xx` responses are treated as send failures and are spooled locally by the AI runtime.
+Backend는 정상 수신 시 `2xx` status를 반환해야 한다. Non-`2xx` 응답은 전송 실패로 간주하며, AI Runtime은 해당 payload를 local spool에 저장한다.
 
-## Timestamp Meaning
+## Timestamp 의미
 
-- `frame_ts`: when the video frame was captured/read.
-- `ts`: when the AI frame analysis payload was created.
-- `sensors.*.ts`: when each sensor reading was measured or last updated.
+- `frame_ts`: 영상 프레임이 수집되거나 읽힌 시각.
+- `ts`: AI Runtime이 frame analysis payload를 생성한 시각.
+- `sensors.*.ts`: 각 sensor reading이 측정되었거나 마지막으로 갱신된 시각.
 
-All timestamps use UTC ISO8601 strings.
+모든 timestamp는 UTC ISO8601 문자열을 사용한다.
 
-## Sensor Status Values
+## Sensor Status 값
 
-- `OK`: sensor value is normal
-- `WARN`: sensor requires attention
-- `ALERT`: dangerous sensor value
-- `CRITICAL`: immediate response needed
-- `STALE`: latest reading is too old
-- `OFFLINE`: sensor is unavailable
-- `UNKNOWN`: status cannot be determined
+- `OK`: sensor 값이 정상 범위다.
+- `WARN`: sensor 확인이 필요하다.
+- `ALERT`: sensor 값이 위험 기준에 걸렸다.
+- `CRITICAL`: 즉시 대응이 필요한 상태다.
+- `STALE`: 최신 reading이 기준 주기보다 오래되었다.
+- `OFFLINE`: sensor를 사용할 수 없다.
+- `UNKNOWN`: 상태를 판단할 수 없다.
 
-## Current Rule Baseline
+## 현재 rule baseline
 
-The current baseline rule engine is intentionally simple and should not be treated as a final industrial safety policy.
+현재 baseline rule engine은 최종 산업안전 정책이 아니다. 통합 테스트와 역할 분리를 위한 최소 판단 로직이다.
 
-- Zone definitions are top-level `zones[]`, not detection fields.
-- Detection-to-zone evidence belongs in `alerts[].evidence[]` when it is needed for the final alert.
-- Zone rules currently support quadrant-based zones in runtime, while the contract supports polygon-style `points` and `points_norm`.
-- Zone intrusion currently checks whether the PERSON bounding-box center is inside a configured quadrant.
-- Sensor threshold rules can raise alerts such as `PROXIMITY_RISK`.
-- A final version should define polygon zones and a better position rule, such as bottom-center/foot point or polygon-overlap ratio.
+- Zone 정의는 최상위 `zones[]`에 둔다. Detection object 안에 넣지 않는다.
+- Detection-to-zone 판정 근거는 필요할 때 `alerts[].evidence[]`에 둔다.
+- Runtime의 zone rule은 현재 quadrant 기반 설정을 지원하지만, 계약은 polygon 형태의 `points`와 `points_norm`을 지원한다.
+- 현재 zone intrusion은 PERSON bbox center가 설정된 quadrant 안에 있는지 확인한다.
+- Sensor threshold rule은 `PROXIMITY_RISK` 같은 alert를 만들 수 있다.
+- 최종 버전에서는 실제 polygon zone, bottom-center/foot point, polygon overlap ratio 같은 더 나은 위치 판정 기준을 정의해야 한다.
 
-## Legacy Note
+## Legacy note
 
-The old shape used one `event_id` payload per detected object. That shape is deprecated for cross-team integration because frontend rendering and timestamp matching need all detections from the same frame together. Transitional code may still accept old `event_id` payloads, but new integrations should use one `analysis_id` payload with `zones[]`, `detections[]`, `sensors`, and `alerts[]`.
+이전 구조는 detected object 1개당 `event_id` payload 1개를 보내는 방식이었다. 이 방식은 frontend rendering과 timestamp 정합성에 불리하므로 새 연동에는 사용하지 않는다.
+
+Transitional code는 old `event_id` payload를 받을 수 있지만, 새 연동은 `analysis_id`를 가진 frame analysis payload를 사용한다.

@@ -1,83 +1,83 @@
-# AI Runtime Team Contract
+# AI Runtime 팀 계약
 
-This is the current cross-team contract for `be-ai-endpoint` after the 2026-05-11 local E2E alignment.
+이 문서는 `be-ai-endpoint`가 다른 팀과 맞춰야 하는 frame analysis 계약을 정의한다. 기준 시점은 2026-05-11 로컬 E2E 정렬 이후다.
 
-## Common Rules
+## 공통 규칙
 
-- Camera unit: one AI Runtime process owns exactly one camera.
-- Output unit: one analyzed frame produces one JSON payload.
-- Time format: all timestamps use UTC ISO8601 strings.
-- Send failure: backend send failures must not stop the runtime. Failed payloads go to the local spool.
-- Sensor status: do not use top-level `sensor_status`. Each sensor object owns its own `status`.
-- Zone field: zone definitions are top-level `zones[]`; alert-specific detection-to-zone evidence stays inside `alerts[].evidence[]` when needed.
+- 카메라 단위: AI Runtime 프로세스 1개는 카메라 1대를 담당한다.
+- 출력 단위: 분석된 프레임 1개는 JSON payload 1개로 전송한다.
+- 시간 형식: 모든 timestamp는 UTC ISO8601 문자열을 사용한다.
+- 전송 실패: backend 전송 실패는 runtime을 중단하지 않는다. 실패한 payload는 local spool에 저장한다.
+- 센서 상태: 최상위 `sensor_status`는 사용하지 않는다. 각 sensor object가 자기 `status`를 가진다.
+- Zone 필드: zone 정의는 최상위 `zones[]`에 둔다. detection-to-zone 판정 근거는 필요할 때 `alerts[].evidence[]`에 둔다.
 
-## POST /api/ai/events Payload
+## `POST /api/ai/events` Payload
 
-Required top-level fields:
+필수 최상위 필드는 다음과 같다.
 
-- `analysis_id`: UUID for one frame analysis payload
-- `ts`: payload creation timestamp
-- `site_id`: site/location ID
-- `camera_id`: camera ID
-- `frame_id`: frame number from this camera stream
-- `frame_ts`: timestamp of the video frame
-- `frame_width`: original frame width
-- `frame_height`: original frame height
-- `zones`: zone definitions applied to this frame
-- `detections`: visual detections in this frame
-- `sensors`: sensor snapshot map at decision time
-- `alerts`: rule-engine decisions for this frame
+- `analysis_id`: 프레임 분석 payload 1건의 UUID
+- `ts`: AI Runtime이 payload를 생성한 시각
+- `site_id`: 현장 또는 설치 위치 ID
+- `camera_id`: 카메라 ID
+- `frame_id`: 해당 카메라 stream에서 읽은 프레임 번호
+- `frame_ts`: 영상 프레임 기준 timestamp
+- `frame_width`: 원본 프레임 너비
+- `frame_height`: 원본 프레임 높이
+- `zones`: 해당 프레임에 적용된 zone 정의
+- `detections`: 해당 프레임의 시각 객체 탐지 결과
+- `sensors`: 판단 시점의 sensor snapshot map
+- `alerts`: rule engine이 만든 상황 판단 결과
 
-## Field Cardinality
+## 필드 수량
 
-| Field | Cardinality | Contract |
+| 필드 | 수량 | 계약 |
 |---|---:|---|
-| `analysis_id` | 1 | ID for one frame analysis payload |
-| `detections[]` | 0..N | Objects in the same frame; multiple people can be sent together |
-| `detections[].bbox` | 1 | One bbox per detection |
-| `detections[].bbox_norm` | 1 | Normalized 0.0-1.0 bbox for frontend overlays |
-| `zones[]` | 0..N | Zone definitions for this camera/frame, including polygon coordinates |
-| `zones[].points` | 0..N | Original-frame pixel polygon coordinates |
-| `zones[].points_norm` | 0..N | Normalized 0.0-1.0 polygon coordinates |
-| `sensors` | 0..N map | Snapshot keyed by sensor name |
-| `sensors.*.zone_ids[]` | 0..N | Optional zones monitored by this sensor |
-| `alerts[]` | 0..N | Situation decisions; backend alarm storage should use this |
-| `alerts[].object_refs[]` | 0..N | Related `detection_id` values |
-| `alerts[].sensor_refs[]` | 0..N | Related sensor keys |
-| `alerts[].zone_refs[]` | 0..N | Related zone IDs |
-| `alerts[].message` | 1 | Human-readable display text generated from structured alert fields |
-| `alerts[].evidence[]` | 0..N | Optional alert evidence, such as detection-to-zone checks |
-| `reason.factors[]` | 0..N | Decision evidence factors |
+| `analysis_id` | 1 | 프레임 분석 payload 1건의 ID |
+| `detections[]` | 0..N | 같은 프레임의 객체 목록. 여러 사람을 한 번에 보낼 수 있다. |
+| `detections[].bbox` | 1 | detection 1개의 원본 프레임 기준 bbox |
+| `detections[].bbox_norm` | 1 | frontend overlay용 0.0~1.0 정규화 bbox |
+| `zones[]` | 0..N | 이 카메라/프레임에 적용된 zone 정의 |
+| `zones[].points` | 0..N | 원본 프레임 기준 polygon pixel 좌표 |
+| `zones[].points_norm` | 0..N | 0.0~1.0 정규화 polygon 좌표 |
+| `sensors` | 0..N map | sensor 이름을 key로 사용하는 snapshot map |
+| `sensors.*.zone_ids[]` | 0..N | 해당 sensor가 감시하는 zone ID 목록 |
+| `alerts[]` | 0..N | 위험 상황 판단 결과. backend 알람 저장 기준이다. |
+| `alerts[].object_refs[]` | 0..N | 관련 `detection_id` 목록 |
+| `alerts[].sensor_refs[]` | 0..N | 관련 sensor key 목록 |
+| `alerts[].zone_refs[]` | 0..N | 관련 zone ID 목록 |
+| `alerts[].message` | 1 | 화면 표시용 문장 |
+| `alerts[].evidence[]` | 0..N | detection-to-zone 판정, 센서 임계값 등 선택적 근거 |
+| `reason.factors[]` | 0..N | 판단에 사용한 구조화된 근거 목록 |
 
-## detections[]
+## `detections[]`
 
-Each detection is the basic unit for drawing a bbox.
+`detections[]`는 bbox를 그리기 위한 모델 탐지 결과다. 위험 판단이나 알람 저장의 기준은 `detections[]`가 아니라 `alerts[]`다.
 
-- `detection_id`: unique detection ID, for example `{analysis_id}:det-1`
-- `object_type`: `PERSON`, `HELMET`, `FORKLIFT`, `SENSOR`, etc.
-- `confidence`: model confidence
-- `track_id`: tracking ID; `null` when tracking is not active
-- `bbox`: `{ x1, y1, x2, y2 }` in original frame coordinates
-- `bbox_norm`: `{ x1, y1, x2, y2 }` normalized by `frame_width` and `frame_height`; use this for responsive frontend overlays
+- `detection_id`: detection 1개의 ID. 예: `{analysis_id}:det-1`
+- `object_type`: `PERSON`, `HELMET`, `FORKLIFT`, `SENSOR` 등
+- `confidence`: 모델 confidence
+- `track_id`: tracking ID. tracking이 없으면 `null`
+- `bbox`: `{ x1, y1, x2, y2 }` 형식의 원본 프레임 기준 좌표
+- `bbox_norm`: `frame_width`, `frame_height`로 정규화한 `{ x1, y1, x2, y2 }`
 
-Detection objects should stay close to model output. Zone/rule decisions belong in `alerts[]`, not inside each detection.
+Detection object는 모델 출력에 가깝게 유지한다. Zone/rule 판단 결과는 detection 안에 넣지 않고 `alerts[]`에 둔다.
 
-## zones[]
+## `zones[]`
 
-`zones[]` contains the zone definitions applied to this frame. The project can send these definitions every frame so frontend/backend do not need a separate zone-catalog request.
+`zones[]`는 해당 프레임에 적용된 위험구역 정의다. 현재 프로젝트는 frontend/backend가 별도 zone catalog 요청 없이 같은 기준을 볼 수 있도록 zone 정의를 frame payload에 포함한다.
 
-- `zone_id`: stable zone ID
-- `name`: human-readable zone name, optional
-- `zone_type`: `polygon`, `quadrant`, etc.
-- `severity`: default severity for this zone
-- `points`: polygon points in original-frame pixel coordinates
-- `points_norm`: polygon points normalized to 0.0-1.0 video coordinates
+- `zone_id`: 안정적으로 유지되는 zone ID
+- `name`: 사람이 읽는 zone 이름. 선택 필드다.
+- `zone_type`: `polygon`, `quadrant` 등
+- `severity`: 이 zone의 기본 위험도
+- `points`: 원본 프레임 기준 polygon pixel 좌표
+- `points_norm`: 0.0~1.0 범위의 정규화 polygon 좌표
 
-Zone coordinate order follows the detection coordinate order: pixel coordinates first, normalized coordinates second. Polygon points are listed along the outer boundary. The first point does not need to be repeated at the end.
+좌표 표기 순서는 detection과 맞춘다. 원본 pixel 좌표를 먼저 두고, 정규화 좌표를 뒤에 둔다. Polygon 점은 외곽선을 따라 순서대로 나열하며, 첫 점을 마지막에 반복하지 않는다.
 
-## sensors
+## `sensors`
 
-`sensors` is a map keyed by sensor name. `zone_ids` is optional and represents the video zones monitored by that sensor.
+`sensors`는 sensor 이름을 key로 사용하는 snapshot map이다. `zone_ids`는 선택 필드이며, 해당 sensor가 감시하는 영상 zone을 나타낸다.
 
 ```json
 {
@@ -93,132 +93,133 @@ Zone coordinate order follows the detection coordinate order: pixel coordinates 
 }
 ```
 
-Allowed sensor status values: `OK`, `WARN`, `ALERT`, `CRITICAL`, `STALE`, `OFFLINE`, `UNKNOWN`.
+허용하는 sensor status 값은 `OK`, `WARN`, `ALERT`, `CRITICAL`, `STALE`, `OFFLINE`, `UNKNOWN`이다.
 
-## alerts[]
+## `alerts[]`
 
-`alerts[]` is the final situation-decision array for backend alarm storage and frontend warning display.
+`alerts[]`는 backend 알람 저장과 frontend 경고 표시의 기준이 되는 최종 상황 판단 배열이다.
 
-- `alert_id`: unique alert ID
-- `event_type`: `ZONE_INTRUSION`, `PROXIMITY_RISK`, etc.
+- `alert_id`: alert 1개의 ID
+- `event_type`: `ZONE_INTRUSION`, `PROXIMITY_RISK` 등
 - `event_status`: `ACTIVE`, `ACKED`, `RESOLVED`, `FALSE_POSITIVE`
-- `severity`: alert severity
-- `object_refs`: related detection IDs
-- `sensor_refs`: related sensor keys
-- `zone_refs`: related zone IDs
-- `message`: display text for frontend/admin screens
-- `evidence`: optional machine-readable evidence, for example `{ type, detection_id, zone_id, inside, basis, overlap_ratio }`
+- `severity`: alert 위험도
+- `object_refs`: 관련 `detection_id` 목록
+- `sensor_refs`: 관련 sensor key 목록
+- `zone_refs`: 관련 zone ID 목록
+- `message`: frontend/admin 화면 표시용 문장
+- `evidence`: 선택적 machine-readable 근거. 예: `{ type, detection_id, zone_id, inside, basis, overlap_ratio }`
 - `reason`: `{ code, factors[] }`
 
-If multiple risk situations happen in one frame, create multiple `alerts[]` entries. Do not add an `event_type[]` array inside a detection.
-Do not use `message` as the only stored source of truth. Backend search, statistics, filtering, and legal/evidence records should rely on `event_type`, `severity`, refs, and `reason`.
+한 프레임에서 여러 위험 상황이 발생하면 `alerts[]`에 여러 entry를 만든다. Detection 안에 `event_type[]` 배열을 넣지 않는다.
 
-## Timestamp Contract
+`message`는 화면 표시용이다. 검색, 통계, 저장, 법적 근거 기록은 `event_type`, `severity`, refs, `reason` 같은 구조화 필드를 우선 사용한다.
 
-- `frame_ts`: video-frame timestamp. Frontend video/bbox alignment should use this.
-- `ts`: AI payload creation timestamp.
-- `sensors.*.ts`: sensor reading timestamp or latest update timestamp.
+## Timestamp 계약
 
-Frontend alignment should use `camera_id + frame_id + frame_ts`.
+- `frame_ts`: 영상 프레임 기준 timestamp. Frontend의 영상/bbox 정합성에는 이 값을 우선 사용한다.
+- `ts`: AI Runtime이 payload를 생성한 timestamp.
+- `sensors.*.ts`: sensor reading이 측정되었거나 마지막으로 갱신된 timestamp.
 
-## Coordinate Contract
+Frontend의 정렬 기준은 `camera_id + frame_id + frame_ts`다.
 
-- Origin: top-left of the original frame.
-- Pixel coordinate basis: `frame_width` and `frame_height`.
-- Normalized coordinate basis: `x / frame_width`, `y / frame_height`.
-- Bounding box format: `bbox` and `bbox_norm` use `xyxy`.
-- Zone format: `points` and `points_norm` use ordered polygon points.
-- Frontend should prefer normalized coordinates for responsive overlays and keep pixel coordinates for debugging and records.
+## 좌표 계약
 
-## Current Rule Baseline
+- 원점: 원본 프레임의 왼쪽 위.
+- Pixel 좌표 기준: `frame_width`, `frame_height`.
+- 정규화 좌표 기준: `x / frame_width`, `y / frame_height`.
+- Bbox 형식: `bbox`와 `bbox_norm`은 `xyxy` 형식을 사용한다.
+- Zone 형식: `points`와 `points_norm`은 순서가 있는 polygon 점 배열을 사용한다.
+- Frontend는 반응형 overlay 표시에는 정규화 좌표를 우선 사용하고, 원본 기록과 디버깅에는 pixel 좌표를 함께 사용할 수 있다.
 
-The current rule engine is a baseline, not final industrial safety logic.
+## 현재 rule baseline
 
-- Zone rules currently support quadrant settings.
-- If one detection matches multiple configured zones and it creates an alert, the alert can include multiple `zone_refs[]` plus optional `evidence[]` entries.
-- Current zone intrusion uses the PERSON bbox center point.
-- Sensor thresholds can raise alerts such as `PROXIMITY_RISK`.
-- Sensor-only analysis can be emitted when there is sensor risk without visual detection.
+현재 rule engine은 최종 산업안전 정책이 아니라 테스트와 통합을 위한 baseline이다.
 
-Future improvements:
+- Runtime의 zone rule은 현재 quadrant 설정을 지원한다.
+- Detection 1개가 여러 zone과 매칭되어 alert를 만들면, 해당 alert는 여러 `zone_refs[]`와 선택적 `evidence[]`를 가질 수 있다.
+- 현재 zone intrusion 판정은 PERSON bbox center point를 기준으로 한다.
+- Sensor threshold rule은 `PROXIMITY_RISK` 같은 alert를 만들 수 있다.
+- 시각 detection이 없어도 sensor 위험만으로 sensor-only analysis를 보낼 수 있다.
 
-- Define real risk zones as polygons, not quadrants.
-- Use bottom-center/foot point or polygon overlap ratio instead of bbox center.
-- Verify that `alerts[].object_refs[]` points only to the actually risky objects when multiple people appear together.
-- Map sensor direction/location to video zones so one sensor alert is not blindly attached to every detection.
+추가 개선이 필요한 부분은 다음과 같다.
 
-## Team Responsibilities
+- 실제 위험구역은 quadrant가 아니라 polygon으로 정의해야 한다.
+- Bbox center 대신 bottom-center/foot point 또는 polygon overlap ratio를 사용하는 것이 더 적절하다.
+- 여러 사람이 동시에 나올 때 `alerts[].object_refs[]`가 실제 위험 객체만 참조하는지 검증해야 한다.
+- Sensor 방향과 위치를 영상 zone에 매핑해야 한다. Sensor alert를 모든 detection에 무조건 붙이면 안 된다.
+
+## 팀별 책임
 
 ### AI Runtime
 
-- Read video frames
-- Run model inference
-- Reflect sensor snapshots
-- Build frame analysis payloads
-- Send `POST /api/ai/events`
-- Spool unsent payloads on backend failure
+- 영상 frame 읽기
+- 모델 추론 실행
+- sensor snapshot 반영
+- frame analysis payload 생성
+- `POST /api/ai/events` 전송
+- 전송 실패 payload spool 저장
 
-AI Runtime does not own final DB schema, user notification policy, or frontend UI.
+AI Runtime은 최종 DB schema, 사용자 알림 정책, frontend UI를 책임지지 않는다.
 
 ### Backend
 
-Backend should provide:
+Backend는 다음 항목을 제공해야 한다.
 
 - `POST /api/ai/events` endpoint
-- Meaning of `2xx` and non-`2xx` responses
-- Idempotency policy based on `analysis_id`
-- Storage policy for frame analysis, detections, zones, alerts, and sensor snapshots
+- `2xx`와 non-`2xx` 응답의 의미
+- `analysis_id` 기준 idempotency 정책
+- frame analysis, detections, zones, alerts, sensor snapshots 저장 정책
 
-Recommended DB shape:
+권장 DB 형태는 다음과 같다.
 
 - `frame_analysis`: `analysis_id`, `site_id`, `camera_id`, `frame_id`, `frame_ts`, `ts`, frame size
 - `detections`: `detection_id`, `analysis_id`, object/bbox/confidence
-- `zones`: `analysis_id`, `zone_id`, zone_type, points/points_norm, severity, or raw `zones` JSONB
+- `zones`: `analysis_id`, `zone_id`, zone_type, points/points_norm, severity 또는 raw `zones` JSONB
 - `alerts`: `alert_id`, `analysis_id`, event_type/severity/status/reason, `zone_refs`
 - `sensor_snapshots`: `analysis_id`, sensor key, sensor object
 
-If the existing tables stay, store the raw payload JSONB first and flatten only `alerts[]` as needed.
+기존 table을 유지한다면 raw payload JSONB를 먼저 저장하고, 필요한 경우 `alerts[]`만 flatten하는 방식을 권장한다.
 
 ### Frontend
 
-Frontend should consume:
+Frontend는 다음 데이터를 소비한다.
 
-- Latest frame analysis or frame analysis history
-- Multiple bbox entries from `detections[]`
-- Zone polygons from top-level `zones[]`
-- Risk state from `alerts[]`
-- Stale/disconnected state rules
+- 최신 frame analysis 또는 frame analysis history
+- `detections[]`의 여러 bbox
+- 최상위 `zones[]`의 zone polygon
+- `alerts[]`의 위험 상태
+- stale/disconnected 표시 규칙
 
-Frontend should not command AI Runtime directly; it should read backend or event-bridge data.
+Frontend는 AI Runtime을 직접 제어하지 않는다. Backend 또는 event bridge가 제공하는 데이터를 읽는다.
 
 ### Streaming
 
-Streaming should provide:
+Streaming은 다음 항목을 제공해야 한다.
 
-- Stable stream URL per `camera_id`
-- Codec, fps, and resolution
-- Stream healthcheck method
-- Frame timestamp source, or a structure that lets AI read the same frame timeline
+- `camera_id`별 안정적인 stream URL
+- codec, fps, resolution
+- stream healthcheck 방법
+- frame timestamp source 또는 AI가 같은 frame timeline을 읽을 수 있는 구조
 
-In operation, frontend and AI must not watch unrelated playback positions for the same camera.
+운영 환경에서 frontend와 AI가 같은 카메라의 서로 다른 playback 위치를 보고 있으면 안 된다.
 
 ### IoT
 
-IoT should provide:
+IoT는 다음 항목을 제공해야 한다.
 
 - Sensor name, ID, type, unit
-- Measurement interval
-- Stale/offline rule
-- JSON payload examples
-- Sensor location/direction to video-zone mapping
-- `zone_ids[]` when one sensor monitors one or more zones
+- 측정 주기
+- stale/offline rule
+- JSON payload 예시
+- Sensor 위치/방향과 video-zone mapping
+- Sensor 1개가 zone 1개 이상을 감시할 때의 `zone_ids[]`
 
-## Sign-off Checklist
+## Sign-off checklist
 
-- [ ] Backend: accepts one payload with `zones[] + detections[] + sensors + alerts[]`
-- [ ] Backend: defines duplicate handling based on `analysis_id`
-- [ ] Frontend: can draw multiple boxes from `detections[]`
-- [ ] Frontend: can display multiple zones from `zones[]`
-- [ ] Streaming: confirms `camera_id`, stream URL, fps, and resolution
-- [ ] IoT: confirms sensor catalog, status values, and `zone_ids[]`
-- [ ] AI: clearly shares that current zone/rule logic is baseline until final policy is decided
+- [ ] Backend: `zones[] + detections[] + sensors + alerts[]`를 가진 payload 1개를 수신한다.
+- [ ] Backend: `analysis_id` 기준 중복 처리 정책을 정의한다.
+- [ ] Frontend: `detections[]`의 여러 bbox를 그릴 수 있다.
+- [ ] Frontend: `zones[]`의 여러 polygon을 표시할 수 있다.
+- [ ] Streaming: `camera_id`, stream URL, fps, resolution을 확정한다.
+- [ ] IoT: sensor catalog, status 값, `zone_ids[]`를 확정한다.
+- [ ] AI: 현재 zone/rule 로직이 최종 정책이 아니라 baseline임을 명확히 공유한다.
