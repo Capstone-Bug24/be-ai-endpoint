@@ -15,6 +15,32 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
   "frame_ts": "2026-05-11T12:00:00.000Z",
   "frame_width": 1920,
   "frame_height": 1080,
+  "zones": [
+    {
+      "zone_id": "danger_q2",
+      "name": "위험구역 2",
+      "zone_type": "polygon",
+      "severity": "HIGH",
+      "points_norm": [
+        { "x": 0.0, "y": 0.0 },
+        { "x": 0.5, "y": 0.0 },
+        { "x": 0.5, "y": 0.5 },
+        { "x": 0.0, "y": 0.5 }
+      ]
+    },
+    {
+      "zone_id": "forklift_lane",
+      "name": "지게차 이동 구역",
+      "zone_type": "polygon",
+      "severity": "HIGH",
+      "points_norm": [
+        { "x": 0.12, "y": 0.2 },
+        { "x": 0.48, "y": 0.18 },
+        { "x": 0.55, "y": 0.72 },
+        { "x": 0.10, "y": 0.76 }
+      ]
+    }
+  ],
   "detections": [
     {
       "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
@@ -32,29 +58,6 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
         "y1": 0.144444,
         "x2": 0.218229,
         "y2": 0.835185
-      },
-      "zones": [
-        {
-          "zone_id": "danger_q2",
-          "inside": true,
-          "zone_type": "quadrant"
-        },
-        {
-          "zone_id": "forklift_lane",
-          "inside": true,
-          "zone_type": "polygon"
-        }
-      ],
-      "zone": {
-        "zone_id": "danger_q2",
-        "inside": true,
-        "zone_type": "quadrant"
-      },
-      "event_type": "ZONE_INTRUSION",
-      "severity": "HIGH",
-      "reason": {
-        "code": "ZONE_INTRUSION",
-        "factors": ["PERSON_DETECTED", "ZONE_INTRUSION", "ULTRA_FRONT_ALERT"]
       }
     },
     {
@@ -73,18 +76,23 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
         "y1": 0.182407,
         "x2": 0.569271,
         "y2": 0.772222
-      },
-      "zones": [],
-      "zone": {
-        "zone_id": "",
-        "inside": false
-      },
-      "event_type": "PROXIMITY_RISK",
-      "severity": "HIGH",
-      "reason": {
-        "code": "PROXIMITY_RISK",
-        "factors": ["PERSON_DETECTED", "ULTRA_FRONT_ALERT"]
       }
+    }
+  ],
+  "zone_matches": [
+    {
+      "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
+      "zone_id": "danger_q2",
+      "inside": true,
+      "basis": "bbox_bottom_center",
+      "overlap_ratio": 0.42
+    },
+    {
+      "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
+      "zone_id": "forklift_lane",
+      "inside": true,
+      "basis": "bbox_bottom_center",
+      "overlap_ratio": 0.31
     }
   ],
   "sensors": {
@@ -139,8 +147,8 @@ The request body is one frame analysis JSON object.
 - `detections[]` contains zero or more visual detections for that frame.
 - `detections[].bbox` contains original-frame pixel coordinates.
 - `detections[].bbox_norm` contains normalized 0.0-1.0 coordinates for frontend overlays.
-- `detections[].zones[]` contains zero or more zones for one detection.
-- `detections[].zone` is a legacy/compat representative zone; new consumers should use `zones[]`.
+- `zones[]` contains the zone definitions applied to this frame.
+- `zone_matches[]` contains detection-to-zone rule results.
 - `sensors` is a snapshot map keyed by sensor name.
 - `sensors.*.zone_ids[]` is optional and maps sensors to one or more zones.
 - `alerts[]` contains rule results and references detections/sensors/zones by ID.
@@ -171,12 +179,13 @@ All timestamps use UTC ISO8601 strings.
 
 The current baseline rule engine is intentionally simple and should not be treated as a final industrial safety policy.
 
-- Zone rules currently support quadrant-based zones.
-- A detection may contain multiple zones in `zones[]`.
+- Zone definitions are top-level `zones[]`, not detection fields.
+- Detection-to-zone results are top-level `zone_matches[]`.
+- Zone rules currently support quadrant-based zones in runtime, while the contract supports polygon-style `points_norm`.
 - Zone intrusion currently checks whether the PERSON bounding-box center is inside a configured quadrant.
 - Sensor threshold rules can raise alerts such as `PROXIMITY_RISK`.
 - A final version should define polygon zones and a better position rule, such as bottom-center/foot point or polygon-overlap ratio.
 
 ## Legacy Note
 
-The old shape used one `event_id` payload per detected object. That shape is deprecated for cross-team integration because frontend rendering and timestamp matching need all detections from the same frame together. Transitional code may still accept old `event_id` payloads, but new integrations should use `analysis_id` with `detections[]`, `detections[].zones[]`, and `alerts[]`.
+The old shape used one `event_id` payload per detected object. That shape is deprecated for cross-team integration because frontend rendering and timestamp matching need all detections from the same frame together. Transitional code may still accept old `event_id` payloads, but new integrations should use one `analysis_id` payload with `zones[]`, `detections[]`, `zone_matches[]`, and `alerts[]`.

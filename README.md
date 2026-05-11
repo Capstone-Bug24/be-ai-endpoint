@@ -42,7 +42,7 @@ flowchart LR
 Current output is one frame analysis JSON per analyzed frame:
 
 ```text
-analysis_id + camera_id + frame_id/frame_ts + detections[] + detections[].zones[] + sensors + alerts[]
+analysis_id + camera_id + frame_id/frame_ts + zones[] + detections[] + zone_matches[] + sensors + alerts[]
 ```
 
 Each visual detection includes both original-frame pixel `bbox` and normalized `bbox_norm` coordinates for responsive frontend overlays.

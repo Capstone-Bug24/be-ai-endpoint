@@ -8,7 +8,7 @@
 
 ```text
 1 analyzed frame = 1 JSON payload
-payload = analysis_id + detections[] + detections[].zones[] + sensors + alerts[]
+payload = analysis_id + zones[] + detections[] + zone_matches[] + sensors + alerts[]
 ```
 
 기존 `event_id` 단건 이벤트 방식은 legacy 호환용으로만 본다.
@@ -38,4 +38,4 @@ payload = analysis_id + detections[] + detections[].zones[] + sensors + alerts[]
 - `alerts[].object_refs` points to detection IDs, not raw bbox objects.
 - Sensor status stays inside each sensor object.
 - `frame_ts` is the video-frame timestamp; `ts` is payload creation time.
-- Zone/rule logic in the current runtime is baseline only; use `zones[]` because one detection can belong to multiple zones.
+- `zones[]` defines polygons/quadrants for the frame; `zone_matches[]` links detections to zones after rule evaluation.

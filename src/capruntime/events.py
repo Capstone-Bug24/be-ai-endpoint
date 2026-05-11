@@ -328,6 +328,11 @@ def _normalize_zone(zone: dict[str, Any]) -> dict[str, Any]:
     zone_type = zone.get("zone_type") or zone.get("type")
     if zone_type:
         payload["zone_type"] = str(zone_type)
+    basis = zone.get("basis")
+    if basis:
+        payload["basis"] = str(basis)
+    if zone.get("overlap_ratio") is not None:
+        payload["overlap_ratio"] = zone.get("overlap_ratio")
     return payload
 
 
@@ -437,6 +442,40 @@ def _zone_refs(zones: list[dict[str, Any]]) -> list[str]:
             refs.append(zone_id)
 
     return refs
+
+
+def _zone_match_payloads(detection_id: str, zones: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    for zone in zones:
+        zone_id = str(zone.get("zone_id", "")).strip()
+        if not zone_id:
+            continue
+        match = {
+            "detection_id": detection_id,
+            "zone_id": zone_id,
+            "inside": bool(zone.get("inside", False)),
+            "basis": str(zone.get("basis", "bbox_center")),
+        }
+        if zone.get("overlap_ratio") is not None:
+            match["overlap_ratio"] = zone.get("overlap_ratio")
+        matches.append(match)
+    return matches
+
+
+def _zone_definition_payloads(zone_definitions: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if not isinstance(zone_definitions, list):
+        return []
+    zones: list[dict[str, Any]] = []
+    for zone in zone_definitions:
+        if not isinstance(zone, dict):
+            continue
+        zone_id = str(zone.get("zone_id", "")).strip()
+        if not zone_id:
+            continue
+        payload = dict(zone)
+        payload["zone_id"] = zone_id
+        zones.append(payload)
+    return zones
 
 
 def _join_refs(refs: list[Any]) -> str:
@@ -598,6 +637,8 @@ def build_analysis_result(
 
     frame_shape: tuple[int, ...] | None = None,
 
+    zone_definitions: list[dict[str, Any]] | None = None,
+
 ) -> dict[str, Any]:
 
     """Frame-level AI payload.
@@ -635,6 +676,7 @@ def build_analysis_result(
 
 
     detection_payloads: list[dict[str, Any]] = []
+    zone_matches: list[dict[str, Any]] = []
 
     alert_groups: dict[tuple[str, str, str, tuple[str, ...]], dict[str, Any]] = {}
 
@@ -643,8 +685,6 @@ def build_analysis_result(
     for index, detection in enumerate(detections, start=1):
 
         zones = _zone_payloads(detection)
-
-        zone = _primary_zone_payload(zones)
 
         zone_refs = _zone_refs(zones)
 
@@ -659,6 +699,8 @@ def build_analysis_result(
         is_visual_detection = object_type != "SENSOR"
 
         detection_id = str(detection.get("detection_id") or f"{analysis_id}:det-{index}")
+
+        zone_matches.extend(_zone_match_payloads(detection_id, zones))
 
 
 
@@ -680,16 +722,6 @@ def build_analysis_result(
                     "bbox": bbox,
 
                     "bbox_norm": _bbox_norm_payload(bbox, width, height),
-
-                    "zones": zones,
-
-                    "zone": zone,
-
-                    "event_type": event_type,
-
-                    "severity": severity,
-
-                    "reason": reason,
 
                 }
 
@@ -765,7 +797,11 @@ def build_analysis_result(
 
         "frame_height": height,
 
+        "zones": _zone_definition_payloads(zone_definitions),
+
         "detections": detection_payloads,
+
+        "zone_matches": zone_matches,
 
         "sensors": sensors,
 

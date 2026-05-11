@@ -227,6 +227,20 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
                 "data": {"value": 1.5},
             }
         },
+        zone_definitions=[
+            {
+                "zone_id": "danger_q2",
+                "zone_type": "quadrant",
+                "severity": "HIGH",
+                "points_norm": [],
+            },
+            {
+                "zone_id": "forklift_lane",
+                "zone_type": "polygon",
+                "severity": "HIGH",
+                "points_norm": [],
+            },
+        ],
 
     )
 
@@ -240,15 +254,45 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
 
     assert len(payload["detections"]) == 2
 
-    assert payload["detections"][0]["zones"] == [
-
-        {"zone_id": "danger_q2", "inside": True, "zone_type": "quadrant"},
-
-        {"zone_id": "forklift_lane", "inside": True, "zone_type": "polygon"},
-
+    assert payload["zones"] == [
+        {
+            "zone_id": "danger_q2",
+            "zone_type": "quadrant",
+            "severity": "HIGH",
+            "points_norm": [],
+        },
+        {
+            "zone_id": "forklift_lane",
+            "zone_type": "polygon",
+            "severity": "HIGH",
+            "points_norm": [],
+        },
     ]
 
-    assert payload["detections"][0]["zone"]["zone_id"] == "danger_q2"
+    assert "zones" not in payload["detections"][0]
+
+    assert "zone" not in payload["detections"][0]
+
+    assert payload["zone_matches"] == [
+        {
+            "detection_id": payload["detections"][0]["detection_id"],
+            "zone_id": "danger_q2",
+            "inside": True,
+            "basis": "bbox_center",
+        },
+        {
+            "detection_id": payload["detections"][0]["detection_id"],
+            "zone_id": "forklift_lane",
+            "inside": True,
+            "basis": "bbox_center",
+        },
+        {
+            "detection_id": payload["detections"][1]["detection_id"],
+            "zone_id": "danger_q2",
+            "inside": True,
+            "basis": "bbox_center",
+        },
+    ]
 
     assert payload["detections"][0]["bbox_norm"] == {
         "x1": 0.005208,

@@ -61,7 +61,9 @@ AI Runtime의 현재 공식 출력은 `POST /api/ai/events`로 보내는 frame a
 analysis_id
 camera_id
 frame_id / frame_ts
+zones[]
 detections[]
+zone_matches[]
 sensors
 alerts[]
 ```

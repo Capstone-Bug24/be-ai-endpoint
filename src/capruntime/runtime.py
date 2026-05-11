@@ -37,6 +37,33 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _quadrant_points_norm(quadrant: int) -> list[dict[str, float]]:
+    if quadrant == 1:
+        return [{"x": 0.5, "y": 0.0}, {"x": 1.0, "y": 0.0}, {"x": 1.0, "y": 0.5}, {"x": 0.5, "y": 0.5}]
+    if quadrant == 2:
+        return [{"x": 0.0, "y": 0.0}, {"x": 0.5, "y": 0.0}, {"x": 0.5, "y": 0.5}, {"x": 0.0, "y": 0.5}]
+    if quadrant == 3:
+        return [{"x": 0.0, "y": 0.5}, {"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 1.0}, {"x": 0.0, "y": 1.0}]
+    if quadrant == 4:
+        return [{"x": 0.5, "y": 0.5}, {"x": 1.0, "y": 0.5}, {"x": 1.0, "y": 1.0}, {"x": 0.5, "y": 1.0}]
+    return []
+
+
+def _zone_definitions(settings: RuntimeSettings) -> list[dict[str, object]]:
+    zones: list[dict[str, object]] = []
+    for zone in settings.danger_zones:
+        zones.append(
+            {
+                "zone_id": zone.zone_id,
+                "zone_type": zone.type,
+                "severity": zone.severity,
+                "quadrant": zone.quadrant if zone.type == "quadrant" else None,
+                "points_norm": _quadrant_points_norm(zone.quadrant) if zone.type == "quadrant" else [],
+            }
+        )
+    return zones
+
+
 
 
 
@@ -183,6 +210,8 @@ class CameraRuntime:
                         frame_ts=frame_ts,
 
                         frame_shape=frame.shape,
+
+                        zone_definitions=_zone_definitions(self.settings),
 
                     )
 
