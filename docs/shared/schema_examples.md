@@ -79,22 +79,6 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
       }
     }
   ],
-  "zone_matches": [
-    {
-      "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
-      "zone_id": "danger_q2",
-      "inside": true,
-      "basis": "bbox_bottom_center",
-      "overlap_ratio": 0.42
-    },
-    {
-      "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
-      "zone_id": "forklift_lane",
-      "inside": true,
-      "basis": "bbox_bottom_center",
-      "overlap_ratio": 0.31
-    }
-  ],
   "sensors": {
     "ultra_front": {
       "id": "ultra_front_01",
@@ -125,6 +109,24 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
       "sensor_refs": ["ultra_front"],
       "zone_refs": ["danger_q2", "forklift_lane"],
       "message": "작업자 1명 danger_q2, forklift_lane 진입 감지",
+      "evidence": [
+        {
+          "type": "zone_match",
+          "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
+          "zone_id": "danger_q2",
+          "inside": true,
+          "basis": "bbox_bottom_center",
+          "overlap_ratio": 0.42
+        },
+        {
+          "type": "zone_match",
+          "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
+          "zone_id": "forklift_lane",
+          "inside": true,
+          "basis": "bbox_bottom_center",
+          "overlap_ratio": 0.31
+        }
+      ],
       "reason": {
         "code": "ZONE_INTRUSION",
         "factors": ["PERSON_DETECTED", "ZONE_INTRUSION", "ULTRA_FRONT_ALERT"]
@@ -148,11 +150,11 @@ The request body is one frame analysis JSON object.
 - `detections[].bbox` contains original-frame pixel coordinates.
 - `detections[].bbox_norm` contains normalized 0.0-1.0 coordinates for frontend overlays.
 - `zones[]` contains the zone definitions applied to this frame.
-- `zone_matches[]` contains detection-to-zone rule results.
 - `sensors` is a snapshot map keyed by sensor name.
 - `sensors.*.zone_ids[]` is optional and maps sensors to one or more zones.
 - `alerts[]` contains rule results and references detections/sensors/zones by ID.
 - `alerts[].message` is display text. Search, stats, and storage logic should still use structured fields such as `event_type`, `severity`, refs, and `reason`.
+- `alerts[].evidence[]` is optional machine-readable evidence for the alert.
 - There is no top-level `sensor_status`. Each sensor has its own `status`.
 
 The backend should return any `2xx` status for successful receipt. Non-`2xx` responses are treated as send failures and are spooled locally by the AI runtime.
@@ -180,7 +182,7 @@ All timestamps use UTC ISO8601 strings.
 The current baseline rule engine is intentionally simple and should not be treated as a final industrial safety policy.
 
 - Zone definitions are top-level `zones[]`, not detection fields.
-- Detection-to-zone results are top-level `zone_matches[]`.
+- Detection-to-zone evidence belongs in `alerts[].evidence[]` when it is needed for the final alert.
 - Zone rules currently support quadrant-based zones in runtime, while the contract supports polygon-style `points_norm`.
 - Zone intrusion currently checks whether the PERSON bounding-box center is inside a configured quadrant.
 - Sensor threshold rules can raise alerts such as `PROXIMITY_RISK`.
@@ -188,4 +190,4 @@ The current baseline rule engine is intentionally simple and should not be treat
 
 ## Legacy Note
 
-The old shape used one `event_id` payload per detected object. That shape is deprecated for cross-team integration because frontend rendering and timestamp matching need all detections from the same frame together. Transitional code may still accept old `event_id` payloads, but new integrations should use one `analysis_id` payload with `zones[]`, `detections[]`, `zone_matches[]`, and `alerts[]`.
+The old shape used one `event_id` payload per detected object. That shape is deprecated for cross-team integration because frontend rendering and timestamp matching need all detections from the same frame together. Transitional code may still accept old `event_id` payloads, but new integrations should use one `analysis_id` payload with `zones[]`, `detections[]`, `sensors`, and `alerts[]`.

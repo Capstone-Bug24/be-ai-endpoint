@@ -444,22 +444,23 @@ def _zone_refs(zones: list[dict[str, Any]]) -> list[str]:
     return refs
 
 
-def _zone_match_payloads(detection_id: str, zones: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    matches: list[dict[str, Any]] = []
+def _zone_evidence_payloads(detection_id: str, zones: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    evidence: list[dict[str, Any]] = []
     for zone in zones:
         zone_id = str(zone.get("zone_id", "")).strip()
         if not zone_id:
             continue
-        match = {
+        item = {
+            "type": "zone_match",
             "detection_id": detection_id,
             "zone_id": zone_id,
             "inside": bool(zone.get("inside", False)),
             "basis": str(zone.get("basis", "bbox_center")),
         }
         if zone.get("overlap_ratio") is not None:
-            match["overlap_ratio"] = zone.get("overlap_ratio")
-        matches.append(match)
-    return matches
+            item["overlap_ratio"] = zone.get("overlap_ratio")
+        evidence.append(item)
+    return evidence
 
 
 def _zone_definition_payloads(zone_definitions: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -676,7 +677,6 @@ def build_analysis_result(
 
 
     detection_payloads: list[dict[str, Any]] = []
-    zone_matches: list[dict[str, Any]] = []
 
     alert_groups: dict[tuple[str, str, str, tuple[str, ...]], dict[str, Any]] = {}
 
@@ -700,7 +700,7 @@ def build_analysis_result(
 
         detection_id = str(detection.get("detection_id") or f"{analysis_id}:det-{index}")
 
-        zone_matches.extend(_zone_match_payloads(detection_id, zones))
+        zone_evidence = _zone_evidence_payloads(detection_id, zones)
 
 
 
@@ -757,6 +757,8 @@ def build_analysis_result(
 
                 "zone_refs": list(sensor_zone_refs),
 
+                "evidence": [],
+
                 "reason": reason,
 
             }
@@ -770,6 +772,10 @@ def build_analysis_result(
             if zone_id not in alert_groups[key]["zone_refs"]:
 
                 alert_groups[key]["zone_refs"].append(zone_id)
+
+        for item in zone_evidence:
+
+            alert_groups[key]["evidence"].append(item)
 
 
     alerts = list(alert_groups.values())
@@ -800,8 +806,6 @@ def build_analysis_result(
         "zones": _zone_definition_payloads(zone_definitions),
 
         "detections": detection_payloads,
-
-        "zone_matches": zone_matches,
 
         "sensors": sensors,
 

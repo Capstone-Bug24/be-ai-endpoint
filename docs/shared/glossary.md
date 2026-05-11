@@ -17,7 +17,7 @@
 | `detection` | 한 프레임에서 모델이 찾은 객체 1개. 예: PERSON 1명. |
 | `detections[]` | 같은 프레임에서 찾은 detection들의 배열. 여러 명을 한 번에 보낼 수 있다. |
 | `zones[]` | frame payload에 포함되는 위험구역 정의 배열. polygon/quadrant 좌표와 zone ID를 담는다. |
-| `zone_matches[]` | rule 평가 후 detection과 zone의 관계를 담는 배열. `detection_id`, `zone_id`, `inside`, `basis`를 가진다. |
+| `alerts[].evidence[]` | alert가 왜 발생했는지에 대한 선택적 근거 배열. detection-zone 관계, 센서 조건 등을 담을 수 있다. |
 | `sensor payload` | IoT 쪽이 제공하는 원본 센서 데이터 객체. |
 | `sensor snapshot` | frame analysis 생성 시점에 AI Runtime이 들고 있는 최신 센서 상태 묶음. |
 | `sensors` | frame analysis payload의 센서 snapshot map. key는 센서 이름이다. |
@@ -36,7 +36,7 @@
 
 - `analysis_id`는 프레임 분석 payload 1건의 ID다.
 - `detection_id`는 화면에 그릴 객체 1개의 ID다.
-- `zones[]`는 zone 정의이고, `zone_matches[]`는 detection이 어떤 zone에 걸렸는지에 대한 판정 결과다.
+- `zones[]`는 zone 정의이고, detection-zone 판정 근거가 필요하면 `alerts[].evidence[]` 안에 넣는다.
 - `alert_id`는 위험 상황 판단 결과 1개의 ID다.
 - `frame_ts`는 영상 프레임 기준 시각이고, `ts`는 AI payload 생성 시각이다.
 - AI Runtime은 `alerts[]`까지 만들지만, 최종 알림 전파/저장 정책은 Backend 책임이다.

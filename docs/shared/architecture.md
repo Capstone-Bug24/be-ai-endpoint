@@ -63,7 +63,6 @@ camera_id
 frame_id / frame_ts
 zones[]
 detections[]
-zone_matches[]
 sensors
 alerts[]
 ```

@@ -273,26 +273,7 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
 
     assert "zone" not in payload["detections"][0]
 
-    assert payload["zone_matches"] == [
-        {
-            "detection_id": payload["detections"][0]["detection_id"],
-            "zone_id": "danger_q2",
-            "inside": True,
-            "basis": "bbox_center",
-        },
-        {
-            "detection_id": payload["detections"][0]["detection_id"],
-            "zone_id": "forklift_lane",
-            "inside": True,
-            "basis": "bbox_center",
-        },
-        {
-            "detection_id": payload["detections"][1]["detection_id"],
-            "zone_id": "danger_q2",
-            "inside": True,
-            "basis": "bbox_center",
-        },
-    ]
+    assert "zone_matches" not in payload
 
     assert payload["detections"][0]["bbox_norm"] == {
         "x1": 0.005208,
@@ -306,6 +287,30 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
     assert len(payload["alerts"][0]["object_refs"]) == 2
 
     assert payload["alerts"][0]["zone_refs"] == ["danger_q2", "forklift_lane"]
+
+    assert payload["alerts"][0]["evidence"] == [
+        {
+            "type": "zone_match",
+            "detection_id": payload["detections"][0]["detection_id"],
+            "zone_id": "danger_q2",
+            "inside": True,
+            "basis": "bbox_center",
+        },
+        {
+            "type": "zone_match",
+            "detection_id": payload["detections"][0]["detection_id"],
+            "zone_id": "forklift_lane",
+            "inside": True,
+            "basis": "bbox_center",
+        },
+        {
+            "type": "zone_match",
+            "detection_id": payload["detections"][1]["detection_id"],
+            "zone_id": "danger_q2",
+            "inside": True,
+            "basis": "bbox_center",
+        },
+    ]
 
     assert payload["alerts"][0]["message"] == "작업자 2명 danger_q2, forklift_lane 진입 감지"
 

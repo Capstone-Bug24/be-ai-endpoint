@@ -90,8 +90,6 @@ def test_runtime_emits_frame_analysis_to_jsonl(sample_video: Path, tmp_path: Pat
 
     assert "zones" in events[0]
 
-    assert "zone_matches" in events[0]
-
     assert "sensors" in events[0]
 
     assert "alerts" in events[0]

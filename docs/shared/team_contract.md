@@ -9,7 +9,7 @@ This is the current cross-team contract for `be-ai-endpoint` after the 2026-05-1
 - Time format: all timestamps use UTC ISO8601 strings.
 - Send failure: backend send failures must not stop the runtime. Failed payloads go to the local spool.
 - Sensor status: do not use top-level `sensor_status`. Each sensor object owns its own `status`.
-- Zone field: zone definitions are top-level `zones[]`; detection-to-zone rule results are top-level `zone_matches[]`.
+- Zone field: zone definitions are top-level `zones[]`; alert-specific detection-to-zone evidence stays inside `alerts[].evidence[]` when needed.
 
 ## POST /api/ai/events Payload
 
@@ -25,7 +25,6 @@ Required top-level fields:
 - `frame_height`: original frame height
 - `zones`: zone definitions applied to this frame
 - `detections`: visual detections in this frame
-- `zone_matches`: detection-to-zone rule results
 - `sensors`: sensor snapshot map at decision time
 - `alerts`: rule-engine decisions for this frame
 
@@ -38,7 +37,6 @@ Required top-level fields:
 | `detections[].bbox` | 1 | One bbox per detection |
 | `detections[].bbox_norm` | 1 | Normalized 0.0-1.0 bbox for frontend overlays |
 | `zones[]` | 0..N | Zone definitions for this camera/frame, including polygon coordinates |
-| `zone_matches[]` | 0..N | Rule results linking `detection_id` to `zone_id` |
 | `sensors` | 0..N map | Snapshot keyed by sensor name |
 | `sensors.*.zone_ids[]` | 0..N | Optional zones monitored by this sensor |
 | `alerts[]` | 0..N | Situation decisions; backend alarm storage should use this |
@@ -46,6 +44,7 @@ Required top-level fields:
 | `alerts[].sensor_refs[]` | 0..N | Related sensor keys |
 | `alerts[].zone_refs[]` | 0..N | Related zone IDs |
 | `alerts[].message` | 1 | Human-readable display text generated from structured alert fields |
+| `alerts[].evidence[]` | 0..N | Optional alert evidence, such as detection-to-zone checks |
 | `reason.factors[]` | 0..N | Decision evidence factors |
 
 ## detections[]
@@ -59,7 +58,7 @@ Each detection is the basic unit for drawing a bbox.
 - `bbox`: `{ x1, y1, x2, y2 }` in original frame coordinates
 - `bbox_norm`: `{ x1, y1, x2, y2 }` normalized by `frame_width` and `frame_height`; use this for responsive frontend overlays
 
-Detection objects should stay close to model output. Zone/rule decisions belong in `zone_matches[]` and `alerts[]`, not inside each detection.
+Detection objects should stay close to model output. Zone/rule decisions belong in `alerts[]`, not inside each detection.
 
 ## zones[]
 
@@ -70,16 +69,6 @@ Detection objects should stay close to model output. Zone/rule decisions belong 
 - `zone_type`: `polygon`, `quadrant`, etc.
 - `severity`: default severity for this zone
 - `points_norm`: polygon points normalized to 0.0-1.0 video coordinates
-
-## zone_matches[]
-
-`zone_matches[]` links detections to zones after rule evaluation.
-
-- `detection_id`: related detection ID
-- `zone_id`: related zone ID
-- `inside`: whether the detection is considered inside the zone
-- `basis`: rule basis, such as `bbox_center`, `bbox_bottom_center`, or `polygon_overlap`
-- `overlap_ratio`: optional overlap ratio when polygon overlap is used
 
 ## sensors
 
@@ -113,6 +102,7 @@ Allowed sensor status values: `OK`, `WARN`, `ALERT`, `CRITICAL`, `STALE`, `OFFLI
 - `sensor_refs`: related sensor keys
 - `zone_refs`: related zone IDs
 - `message`: display text for frontend/admin screens
+- `evidence`: optional machine-readable evidence, for example `{ type, detection_id, zone_id, inside, basis, overlap_ratio }`
 - `reason`: `{ code, factors[] }`
 
 If multiple risk situations happen in one frame, create multiple `alerts[]` entries. Do not add an `event_type[]` array inside a detection.
@@ -131,7 +121,7 @@ Frontend alignment should use `camera_id + frame_id + frame_ts`.
 The current rule engine is a baseline, not final industrial safety logic.
 
 - Zone rules currently support quadrant settings.
-- If one detection matches multiple configured zones, all matches are emitted in `zone_matches[]`.
+- If one detection matches multiple configured zones and it creates an alert, the alert can include multiple `zone_refs[]` plus optional `evidence[]` entries.
 - Current zone intrusion uses the PERSON bbox center point.
 - Sensor thresholds can raise alerts such as `PROXIMITY_RISK`.
 - Sensor-only analysis can be emitted when there is sensor risk without visual detection.
@@ -163,18 +153,17 @@ Backend should provide:
 - `POST /api/ai/events` endpoint
 - Meaning of `2xx` and non-`2xx` responses
 - Idempotency policy based on `analysis_id`
-- Storage policy for frame analysis, detections, detection zones, alerts, and sensor snapshots
+- Storage policy for frame analysis, detections, zones, alerts, and sensor snapshots
 
 Recommended DB shape:
 
 - `frame_analysis`: `analysis_id`, `site_id`, `camera_id`, `frame_id`, `frame_ts`, `ts`, frame size
 - `detections`: `detection_id`, `analysis_id`, object/bbox/confidence
 - `zones`: `analysis_id`, `zone_id`, zone_type, points_norm, severity, or raw `zones` JSONB
-- `zone_matches`: `analysis_id`, `detection_id`, `zone_id`, inside, basis, overlap_ratio
 - `alerts`: `alert_id`, `analysis_id`, event_type/severity/status/reason, `zone_refs`
 - `sensor_snapshots`: `analysis_id`, sensor key, sensor object
 
-If the existing tables stay, store the raw payload JSONB first and flatten only `alerts[]` or `zone_matches[]` as needed.
+If the existing tables stay, store the raw payload JSONB first and flatten only `alerts[]` as needed.
 
 ### Frontend
 
@@ -183,7 +172,6 @@ Frontend should consume:
 - Latest frame analysis or frame analysis history
 - Multiple bbox entries from `detections[]`
 - Zone polygons from top-level `zones[]`
-- Detection-zone relation from `zone_matches[]`
 - Risk state from `alerts[]`
 - Stale/disconnected state rules
 
@@ -213,7 +201,7 @@ IoT should provide:
 
 ## Sign-off Checklist
 
-- [ ] Backend: accepts one payload with `zones[] + detections[] + zone_matches[] + sensors + alerts[]`
+- [ ] Backend: accepts one payload with `zones[] + detections[] + sensors + alerts[]`
 - [ ] Backend: defines duplicate handling based on `analysis_id`
 - [ ] Frontend: can draw multiple boxes from `detections[]`
 - [ ] Frontend: can display multiple zones from `zones[]`
