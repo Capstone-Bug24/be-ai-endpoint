@@ -32,7 +32,7 @@
 | `dry_run` | backend 전송 없이 local 출력만 확인하는 실행 모드. |
 | `stale` | sensor data가 기준 주기보다 오래 갱신되지 않은 상태. |
 | `RTSP reconnect` | RTSP stream이 끊겼을 때 같은 URL로 다시 붙는 복구 동작. |
-| `event_id` | 이전 단건 이벤트 payload의 ID. 새 계약에서는 deprecated이며 legacy 호환용으로만 사용한다. |
+| `event_id` | 이전 단건 이벤트 payload의 ID. 새 계약에서는 사용하지 않으며 legacy 호환용으로만 남긴다. |
 
 ## 헷갈리기 쉬운 구분
 

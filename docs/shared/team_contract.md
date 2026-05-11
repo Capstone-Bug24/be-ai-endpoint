@@ -2,6 +2,13 @@
 
 이 문서는 `be-ai-endpoint`가 다른 팀과 맞춰야 하는 frame analysis 계약을 정의한다. 기준 시점은 2026-05-11 로컬 E2E 정렬 이후다.
 
+## 문서 범위
+
+이 문서는 AI Runtime의 출력 payload와 팀 간 연동 책임을 정의한다. 현재 파일 기준으로 확인한 구현 사실과, 팀별 확인이 필요한 항목을 분리해서 적는다.
+
+- 확인한 범위: AI Runtime의 frame analysis payload 구조, `detections[]`/`zones[]`/`sensors`/`alerts[]` 역할 분리, 좌표 표기 기준.
+- 확인이 필요한 범위: Backend의 최종 DB schema와 idempotency 정책, Frontend overlay 구현, Streaming timestamp source, IoT sensor catalog와 sensor-to-zone mapping.
+
 ## 공통 규칙
 
 - 카메라 단위: AI Runtime 프로세스 1개는 카메라 1대를 담당한다.

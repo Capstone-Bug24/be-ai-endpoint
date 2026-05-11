@@ -201,8 +201,8 @@ Backend는 정상 수신 시 `2xx` status를 반환해야 한다. Non-`2xx` 응�
 - Sensor threshold rule은 `PROXIMITY_RISK` 같은 alert를 만들 수 있다.
 - 최종 버전에서는 실제 polygon zone, bottom-center/foot point, polygon overlap ratio 같은 더 나은 위치 판정 기준을 정의해야 한다.
 
-## Legacy note
+## Legacy 참고
 
 이전 구조는 detected object 1개당 `event_id` payload 1개를 보내는 방식이었다. 이 방식은 frontend rendering과 timestamp 정합성에 불리하므로 새 연동에는 사용하지 않는다.
 
-Transitional code는 old `event_id` payload를 받을 수 있지만, 새 연동은 `analysis_id`를 가진 frame analysis payload를 사용한다.
+전환기 호환 코드는 old `event_id` payload를 받을 수 있지만, 새 연동은 `analysis_id`를 가진 frame analysis payload를 사용한다.

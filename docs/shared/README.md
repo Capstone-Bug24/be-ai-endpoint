@@ -13,6 +13,12 @@ payload = analysis_id + zones[] + detections[] + sensors + alerts[]
 
 기존 `event_id` 단건 이벤트 방식은 legacy 호환용으로만 본다. 새 연동은 `analysis_id` 기준의 프레임 단위 payload를 사용한다.
 
+## 검증 범위
+
+이 문서는 현재 `be-ai-endpoint` 코드와 shared 문서 기준으로 정리한 AI Runtime 출력 계약이다. 문서가 직접 확정하는 범위는 AI Runtime이 backend로 보내는 payload 구조, 좌표 기준, 팀별 책임 경계다.
+
+Backend 저장 구현, Frontend 표시 구현, Streaming의 실제 stream URL/fps/resolution, IoT sensor catalog는 각 담당 팀의 확인이 필요하다. 이 항목들은 [team_contract.md](team_contract.md)의 sign-off checklist에서 추적한다.
+
 ## 읽는 순서
 
 1. [architecture.md](architecture.md): 시스템 경계와 데이터 흐름
