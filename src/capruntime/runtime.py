@@ -171,7 +171,10 @@ class CameraRuntime:
 
                     break
 
-                frame_ts = _now_iso()
+                frame_read_ts = _now_iso()
+                source_frame_ts, frame_ts_source = self.source.frame_timestamp()
+                frame_ts = source_frame_ts or frame_read_ts
+                frame_ts_source = frame_ts_source or "ai_read_time"
 
 
 
@@ -208,6 +211,8 @@ class CameraRuntime:
                         frame_id=frame_index,
 
                         frame_ts=frame_ts,
+
+                        frame_ts_source=frame_ts_source,
 
                         frame_shape=frame.shape,
 

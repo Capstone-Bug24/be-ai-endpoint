@@ -86,6 +86,8 @@ def test_runtime_emits_frame_analysis_to_jsonl(sample_video: Path, tmp_path: Pat
 
     assert events[0]["frame_id"] == 0
 
+    assert events[0]["frame_ts_source"] == "ai_read_time"
+
     assert len(events[0]["detections"]) == 1
 
     assert "zones" in events[0]

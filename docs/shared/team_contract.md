@@ -27,7 +27,8 @@
 - `site_id`: 현장 또는 설치 위치 ID
 - `camera_id`: 카메라 ID
 - `frame_id`: 해당 카메라 stream에서 읽은 프레임 번호
-- `frame_ts`: 영상 프레임 기준 timestamp
+- `frame_ts`: 영상 source 기준 timestamp
+- `frame_ts_source`: `frame_ts` 값의 출처
 - `frame_width`: 원본 프레임 너비
 - `frame_height`: 원본 프레임 높이
 - `zones`: 해당 프레임에 적용된 zone 정의
@@ -40,6 +41,8 @@
 | 필드 | 수량 | 계약 |
 |---|---:|---|
 | `analysis_id` | 1 | 프레임 분석 payload 1건의 ID |
+| `frame_ts` | 1 | 영상 source 기준 timestamp. source timestamp가 없으면 fallback timestamp를 사용한다. |
+| `frame_ts_source` | 1 | `stream`, `ai_read_time`, `provided`, `ai_payload_time` 중 하나 |
 | `detections[]` | 0..N | 같은 프레임의 객체 목록. 여러 사람을 한 번에 보낼 수 있다. |
 | `detections[].bbox` | 1 | detection 1개의 원본 프레임 기준 bbox |
 | `detections[].bbox_norm` | 1 | frontend overlay용 0.0~1.0 정규화 bbox |
@@ -123,11 +126,13 @@ Detection object는 모델 출력에 가깝게 유지한다. Zone/rule 판단 �
 
 ## Timestamp 계약
 
-- `frame_ts`: 영상 프레임 기준 timestamp. Frontend의 영상/bbox 정합성에는 이 값을 우선 사용한다.
+- `frame_ts`: 영상 source 기준 timestamp. Streaming이 frame timestamp 또는 PTS를 제공하면 AI Runtime은 그 값을 사용한다.
+- `frame_ts_source`: `frame_ts`의 출처. 현재 fallback 값은 `ai_read_time`이다.
 - `ts`: AI Runtime이 payload를 생성한 timestamp.
 - `sensors.*.ts`: sensor reading이 측정되었거나 마지막으로 갱신된 timestamp.
 
 Frontend의 정렬 기준은 `camera_id + frame_id + frame_ts`다.
+Streaming이 source timestamp를 제공하지 않는 local file, webcam, mock 환경에서는 AI Runtime이 frame을 읽은 시각을 `frame_ts` fallback으로 사용한다. 이 fallback은 테스트에는 사용할 수 있지만, 실제 운영에서 frontend 영상과 AI bbox를 정확히 동기화하는 기준으로 보기는 어렵다.
 
 ## 좌표 계약
 
@@ -206,9 +211,11 @@ Streaming은 다음 항목을 제공해야 한다.
 - `camera_id`별 안정적인 stream URL
 - codec, fps, resolution
 - stream healthcheck 방법
-- frame timestamp source 또는 AI가 같은 frame timeline을 읽을 수 있는 구조
+- frame timestamp source, PTS, frame sequence 중 하나
+- AI와 Frontend가 같은 frame timeline을 읽을 수 있는 구조
 
 운영 환경에서 frontend와 AI가 같은 카메라의 서로 다른 playback 위치를 보고 있으면 안 된다.
+Frontend가 stream을 `iframe`으로 표시하는 경우, iframe 자체를 frame timestamp source로 취급하지 않는다. Cross-origin iframe이나 단순 player page는 원본 frame PTS를 안정적으로 노출하지 않기 때문이다. Streaming은 별도 metadata API/WebSocket, player event, HLS `PROGRAM-DATE-TIME`, WebRTC/RTP timestamp mapping 등 명시적인 동기화 기준을 제공해야 한다.
 
 ### IoT
 
@@ -227,6 +234,6 @@ IoT는 다음 항목을 제공해야 한다.
 - [ ] Backend: `analysis_id` 기준 중복 처리 정책을 정의한다.
 - [ ] Frontend: `detections[]`의 여러 bbox를 그릴 수 있다.
 - [ ] Frontend: `zones[]`의 여러 polygon을 표시할 수 있다.
-- [ ] Streaming: `camera_id`, stream URL, fps, resolution을 확정한다.
+- [ ] Streaming: `camera_id`, stream URL, fps, resolution, frame timestamp source를 확정한다.
 - [ ] IoT: sensor catalog, status 값, `zone_ids[]`를 확정한다.
 - [ ] AI: 현재 zone/rule 로직이 최종 정책이 아니라 baseline임을 명확히 공유한다.

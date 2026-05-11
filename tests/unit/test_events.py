@@ -255,6 +255,8 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
 
     assert payload["frame_id"] == 7
 
+    assert payload["frame_ts_source"] == "provided"
+
     assert payload["frame_width"] == 1920
 
     assert len(payload["detections"]) == 2

@@ -18,6 +18,9 @@ class VideoSource(Protocol):
     def read(self) -> tuple[bool, np.ndarray | None]:
         ...
 
+    def frame_timestamp(self) -> tuple[str | None, str | None]:
+        ...
+
     def release(self) -> None:
         ...
 
@@ -45,6 +48,9 @@ class FileVideoSource:
         self._cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
         return self._cap.read()
 
+    def frame_timestamp(self) -> tuple[str | None, str | None]:
+        return None, None
+
     def release(self) -> None:
         self._cap.release()
 
@@ -64,6 +70,9 @@ class WebcamVideoSource:
 
     def read(self) -> tuple[bool, np.ndarray | None]:
         return self._cap.read()
+
+    def frame_timestamp(self) -> tuple[str | None, str | None]:
+        return None, None
 
     def release(self) -> None:
         self._cap.release()
@@ -102,6 +111,9 @@ class RtspVideoSource:
             return True, frame
         self._reconnect()
         return False, None
+
+    def frame_timestamp(self) -> tuple[str | None, str | None]:
+        return None, None
 
     def release(self) -> None:
         self._cap.release()

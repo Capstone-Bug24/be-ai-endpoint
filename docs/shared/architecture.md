@@ -7,6 +7,7 @@ flowchart LR
     subgraph Streaming["Streaming Team"]
         S1["camera_id별 stream URL"]
         S2["codec / fps / resolution / healthcheck"]
+        S3["frame timestamp source"]
     end
 
     subgraph IoT["IoT Team"]
@@ -39,6 +40,7 @@ flowchart LR
 
     S1 --> A1
     S2 --> A1
+    S3 --> A1
     I1 --> A3
     I2 --> A3
     A6 --> B1
@@ -50,7 +52,7 @@ flowchart LR
 - AI Runtime은 영상 프레임을 읽고, 모델 추론과 baseline rule을 적용한 뒤 frame analysis payload를 만든다.
 - Backend는 payload 저장, 중복 처리, 최종 알림 정책을 책임진다.
 - Frontend는 backend 또는 event bridge가 제공하는 frame analysis 데이터를 시각화한다.
-- Streaming은 안정적인 영상 입력과 camera metadata를 제공한다.
+- Streaming은 안정적인 영상 입력, camera metadata, frame timestamp 기준을 제공한다.
 - IoT는 sensor payload와 센서의 의미, 위치, stale/offline 기준을 제공한다.
 
 ## 출력 계약

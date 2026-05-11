@@ -43,5 +43,6 @@ Backend 저장 구현, Frontend 표시 구현, Streaming의 실제 stream URL/fp
 - Backend는 `analysis_id`를 최상위 idempotency key로 취급해야 한다.
 - `alerts[].object_refs`는 raw bbox가 아니라 `detection_id`를 참조한다.
 - 센서 상태는 최상위 `sensor_status`로 보내지 않는다. 각 sensor object가 자기 `status`를 가진다.
-- `frame_ts`는 영상 프레임 기준 timestamp이고, `ts`는 payload 생성 timestamp다.
+- `frame_ts`는 영상 source 기준 timestamp이고, `frame_ts_source`는 그 값의 출처다.
+- `ts`는 payload 생성 timestamp다.
 - `zones[]`는 `points`와 `points_norm`을 가진 위험구역 정의다. alert별 zone 판정 근거는 필요할 때 `alerts[].evidence[]`에 둔다.

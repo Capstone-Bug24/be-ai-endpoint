@@ -12,6 +12,7 @@
   "camera_id": "cam01",
   "frame_id": 318,
   "frame_ts": "2026-05-11T12:00:00.000Z",
+  "frame_ts_source": "stream",
   "frame_width": 1920,
   "frame_height": 1080,
   "zones": [
@@ -174,11 +175,13 @@ Backend는 정상 수신 시 `2xx` status를 반환해야 한다. Non-`2xx` 응�
 
 ## Timestamp 의미
 
-- `frame_ts`: 영상 프레임이 수집되거나 읽힌 시각.
+- `frame_ts`: 영상 source 기준 timestamp. Streaming이 frame timestamp 또는 PTS를 제공하면 그 값을 사용한다.
+- `frame_ts_source`: `frame_ts` 값의 출처. 예: `stream`, `ai_read_time`, `provided`, `ai_payload_time`.
 - `ts`: AI Runtime이 frame analysis payload를 생성한 시각.
 - `sensors.*.ts`: 각 sensor reading이 측정되었거나 마지막으로 갱신된 시각.
 
 모든 timestamp는 UTC ISO8601 문자열을 사용한다.
+Streaming timestamp가 없는 local file, webcam, mock 환경에서는 AI Runtime이 frame을 읽은 시각을 `ai_read_time` fallback으로 사용한다.
 
 ## Sensor Status 값
 

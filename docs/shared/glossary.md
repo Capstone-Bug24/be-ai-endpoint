@@ -10,7 +10,8 @@
 | `camera_id` | 카메라를 구분하는 ID. Streaming, AI, Backend, Frontend가 같은 값을 사용해야 한다. |
 | `site_id` | 현장 또는 설치 위치를 구분하는 ID. |
 | `frame_id` | 특정 카메라에서 읽은 프레임 번호. 영상과 AI 결과를 맞추는 기준 중 하나다. |
-| `frame_ts` | 해당 프레임이 수집되거나 읽힌 시각. 영상과 bbox 정합성을 맞추는 핵심 timestamp다. |
+| `frame_ts` | 영상 source 기준 timestamp. 영상과 bbox 정합성을 맞추는 핵심 timestamp다. |
+| `frame_ts_source` | `frame_ts` 값의 출처. 예: `stream`, `ai_read_time`, `provided`, `ai_payload_time`. |
 | `ts` | AI Runtime이 frame analysis payload를 생성한 시각. |
 | `bbox` | Bounding box. `{x1, y1, x2, y2}` 형식의 원본 프레임 좌표를 사용한다. |
 | `bbox_norm` | `bbox`를 `frame_width`, `frame_height`로 나눈 0.0~1.0 비율 좌표. Frontend overlay 표시용이다. |
@@ -41,7 +42,8 @@
 - `zones[]`는 zone 정의이고, `points`와 `points_norm`을 함께 제공한다.
 - Detection-to-zone 판정 근거가 필요하면 `alerts[].evidence[]` 안에 넣는다.
 - `alert_id`는 위험 상황 판단 결과 1개의 ID다.
-- `frame_ts`는 영상 프레임 기준 시각이고, `ts`는 AI payload 생성 시각이다.
+- `frame_ts`는 영상 source 기준 시각이고, `ts`는 AI payload 생성 시각이다.
+- Streaming timestamp가 없으면 현재 구현은 AI Runtime이 frame을 읽은 시각을 fallback으로 사용한다.
 - AI Runtime은 `alerts[]`까지 만들지만, 최종 알림 전파와 저장 정책은 Backend 책임이다.
 
 ## 같이 보면 좋은 문서

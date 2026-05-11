@@ -684,6 +684,8 @@ def build_analysis_result(
 
     frame_ts: str | None = None,
 
+    frame_ts_source: str | None = None,
+
     frame_shape: tuple[int, ...] | None = None,
 
     zone_definitions: list[dict[str, Any]] | None = None,
@@ -846,6 +848,8 @@ def build_analysis_result(
         "frame_id": frame_id,
 
         "frame_ts": str(frame_ts or analysis_ts),
+
+        "frame_ts_source": str(frame_ts_source or ("provided" if frame_ts else "ai_payload_time")),
 
         "frame_width": width,
 
