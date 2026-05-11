@@ -38,4 +38,4 @@ payload = analysis_id + zones[] + detections[] + sensors + alerts[]
 - `alerts[].object_refs` points to detection IDs, not raw bbox objects.
 - Sensor status stays inside each sensor object.
 - `frame_ts` is the video-frame timestamp; `ts` is payload creation time.
-- `zones[]` defines polygons/quadrants for the frame; alert-specific zone evidence stays inside `alerts[].evidence[]`.
+- `zones[]` defines polygons/quadrants for the frame with `points` and `points_norm`; alert-specific zone evidence stays inside `alerts[].evidence[]`.

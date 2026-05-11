@@ -21,6 +21,12 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
       "name": "위험구역 2",
       "zone_type": "polygon",
       "severity": "HIGH",
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 960, "y": 0 },
+        { "x": 960, "y": 540 },
+        { "x": 0, "y": 540 }
+      ],
       "points_norm": [
         { "x": 0.0, "y": 0.0 },
         { "x": 0.5, "y": 0.0 },
@@ -33,6 +39,12 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
       "name": "지게차 이동 구역",
       "zone_type": "polygon",
       "severity": "HIGH",
+      "points": [
+        { "x": 230, "y": 216 },
+        { "x": 922, "y": 194 },
+        { "x": 1056, "y": 778 },
+        { "x": 192, "y": 821 }
+      ],
       "points_norm": [
         { "x": 0.12, "y": 0.2 },
         { "x": 0.48, "y": 0.18 },
@@ -150,6 +162,8 @@ The request body is one frame analysis JSON object.
 - `detections[].bbox` contains original-frame pixel coordinates.
 - `detections[].bbox_norm` contains normalized 0.0-1.0 coordinates for frontend overlays.
 - `zones[]` contains the zone definitions applied to this frame.
+- `zones[].points` contains original-frame pixel polygon coordinates.
+- `zones[].points_norm` contains normalized 0.0-1.0 polygon coordinates.
 - `sensors` is a snapshot map keyed by sensor name.
 - `sensors.*.zone_ids[]` is optional and maps sensors to one or more zones.
 - `alerts[]` contains rule results and references detections/sensors/zones by ID.
@@ -183,7 +197,7 @@ The current baseline rule engine is intentionally simple and should not be treat
 
 - Zone definitions are top-level `zones[]`, not detection fields.
 - Detection-to-zone evidence belongs in `alerts[].evidence[]` when it is needed for the final alert.
-- Zone rules currently support quadrant-based zones in runtime, while the contract supports polygon-style `points_norm`.
+- Zone rules currently support quadrant-based zones in runtime, while the contract supports polygon-style `points` and `points_norm`.
 - Zone intrusion currently checks whether the PERSON bounding-box center is inside a configured quadrant.
 - Sensor threshold rules can raise alerts such as `PROXIMITY_RISK`.
 - A final version should define polygon zones and a better position rule, such as bottom-center/foot point or polygon-overlap ratio.

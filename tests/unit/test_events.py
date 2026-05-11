@@ -232,7 +232,12 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
                 "zone_id": "danger_q2",
                 "zone_type": "quadrant",
                 "severity": "HIGH",
-                "points_norm": [],
+                "points_norm": [
+                    {"x": 0.0, "y": 0.0},
+                    {"x": 0.5, "y": 0.0},
+                    {"x": 0.5, "y": 0.5},
+                    {"x": 0.0, "y": 0.5},
+                ],
             },
             {
                 "zone_id": "forklift_lane",
@@ -259,12 +264,24 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
             "zone_id": "danger_q2",
             "zone_type": "quadrant",
             "severity": "HIGH",
-            "points_norm": [],
+            "points": [
+                {"x": 0, "y": 0},
+                {"x": 960, "y": 0},
+                {"x": 960, "y": 540},
+                {"x": 0, "y": 540},
+            ],
+            "points_norm": [
+                {"x": 0.0, "y": 0.0},
+                {"x": 0.5, "y": 0.0},
+                {"x": 0.5, "y": 0.5},
+                {"x": 0.0, "y": 0.5},
+            ],
         },
         {
             "zone_id": "forklift_lane",
             "zone_type": "polygon",
             "severity": "HIGH",
+            "points": [],
             "points_norm": [],
         },
     ]

@@ -37,6 +37,8 @@ Required top-level fields:
 | `detections[].bbox` | 1 | One bbox per detection |
 | `detections[].bbox_norm` | 1 | Normalized 0.0-1.0 bbox for frontend overlays |
 | `zones[]` | 0..N | Zone definitions for this camera/frame, including polygon coordinates |
+| `zones[].points` | 0..N | Original-frame pixel polygon coordinates |
+| `zones[].points_norm` | 0..N | Normalized 0.0-1.0 polygon coordinates |
 | `sensors` | 0..N map | Snapshot keyed by sensor name |
 | `sensors.*.zone_ids[]` | 0..N | Optional zones monitored by this sensor |
 | `alerts[]` | 0..N | Situation decisions; backend alarm storage should use this |
@@ -68,7 +70,10 @@ Detection objects should stay close to model output. Zone/rule decisions belong 
 - `name`: human-readable zone name, optional
 - `zone_type`: `polygon`, `quadrant`, etc.
 - `severity`: default severity for this zone
+- `points`: polygon points in original-frame pixel coordinates
 - `points_norm`: polygon points normalized to 0.0-1.0 video coordinates
+
+Zone coordinate order follows the detection coordinate order: pixel coordinates first, normalized coordinates second. Polygon points are listed along the outer boundary. The first point does not need to be repeated at the end.
 
 ## sensors
 
@@ -116,6 +121,15 @@ Do not use `message` as the only stored source of truth. Backend search, statist
 
 Frontend alignment should use `camera_id + frame_id + frame_ts`.
 
+## Coordinate Contract
+
+- Origin: top-left of the original frame.
+- Pixel coordinate basis: `frame_width` and `frame_height`.
+- Normalized coordinate basis: `x / frame_width`, `y / frame_height`.
+- Bounding box format: `bbox` and `bbox_norm` use `xyxy`.
+- Zone format: `points` and `points_norm` use ordered polygon points.
+- Frontend should prefer normalized coordinates for responsive overlays and keep pixel coordinates for debugging and records.
+
 ## Current Rule Baseline
 
 The current rule engine is a baseline, not final industrial safety logic.
@@ -159,7 +173,7 @@ Recommended DB shape:
 
 - `frame_analysis`: `analysis_id`, `site_id`, `camera_id`, `frame_id`, `frame_ts`, `ts`, frame size
 - `detections`: `detection_id`, `analysis_id`, object/bbox/confidence
-- `zones`: `analysis_id`, `zone_id`, zone_type, points_norm, severity, or raw `zones` JSONB
+- `zones`: `analysis_id`, `zone_id`, zone_type, points/points_norm, severity, or raw `zones` JSONB
 - `alerts`: `alert_id`, `analysis_id`, event_type/severity/status/reason, `zone_refs`
 - `sensor_snapshots`: `analysis_id`, sensor key, sensor object
 

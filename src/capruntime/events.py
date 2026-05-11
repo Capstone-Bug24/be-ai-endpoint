@@ -463,7 +463,41 @@ def _zone_evidence_payloads(detection_id: str, zones: list[dict[str, Any]]) -> l
     return evidence
 
 
-def _zone_definition_payloads(zone_definitions: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def _zone_points_from_norm(
+    points_norm: Any,
+    frame_width: int | None,
+    frame_height: int | None,
+) -> list[dict[str, int]]:
+    if not frame_width or not frame_height or frame_width <= 0 or frame_height <= 0:
+        return []
+    if not isinstance(points_norm, list):
+        return []
+
+    points: list[dict[str, int]] = []
+    for point in points_norm:
+        if not isinstance(point, dict):
+            continue
+        try:
+            x_norm = float(point["x"])
+            y_norm = float(point["y"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        x_norm = max(0.0, min(1.0, x_norm))
+        y_norm = max(0.0, min(1.0, y_norm))
+        points.append(
+            {
+                "x": int(round(x_norm * frame_width)),
+                "y": int(round(y_norm * frame_height)),
+            }
+        )
+    return points
+
+
+def _zone_definition_payloads(
+    zone_definitions: list[dict[str, Any]] | None,
+    frame_width: int | None,
+    frame_height: int | None,
+) -> list[dict[str, Any]]:
     if not isinstance(zone_definitions, list):
         return []
     zones: list[dict[str, Any]] = []
@@ -473,7 +507,21 @@ def _zone_definition_payloads(zone_definitions: list[dict[str, Any]] | None) -> 
         zone_id = str(zone.get("zone_id", "")).strip()
         if not zone_id:
             continue
-        payload = dict(zone)
+
+        points_norm = zone.get("points_norm", [])
+        points = zone.get("points")
+        if not isinstance(points, list):
+            points = _zone_points_from_norm(points_norm, frame_width, frame_height)
+
+        payload: dict[str, Any] = {"zone_id": zone_id}
+        for key in ("name", "zone_type", "severity", "quadrant"):
+            if key in zone and zone[key] is not None:
+                payload[key] = zone[key]
+        payload["points"] = points
+        payload["points_norm"] = points_norm if isinstance(points_norm, list) else []
+        for key, value in zone.items():
+            if key not in payload and key != "points":
+                payload[key] = value
         payload["zone_id"] = zone_id
         zones.append(payload)
     return zones
@@ -803,7 +851,7 @@ def build_analysis_result(
 
         "frame_height": height,
 
-        "zones": _zone_definition_payloads(zone_definitions),
+        "zones": _zone_definition_payloads(zone_definitions, width, height),
 
         "detections": detection_payloads,
 
