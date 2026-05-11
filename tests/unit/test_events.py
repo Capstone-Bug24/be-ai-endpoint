@@ -250,6 +250,13 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
 
     assert payload["detections"][0]["zone"]["zone_id"] == "danger_q2"
 
+    assert payload["detections"][0]["bbox_norm"] == {
+        "x1": 0.005208,
+        "y1": 0.018519,
+        "x2": 0.015625,
+        "y2": 0.037037,
+    }
+
     assert len(payload["alerts"]) == 1
 
     assert len(payload["alerts"][0]["object_refs"]) == 2

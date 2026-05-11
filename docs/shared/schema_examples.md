@@ -27,6 +27,12 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
         "x2": 419,
         "y2": 902
       },
+      "bbox_norm": {
+        "x1": 0.079167,
+        "y1": 0.144444,
+        "x2": 0.218229,
+        "y2": 0.835185
+      },
       "zones": [
         {
           "zone_id": "danger_q2",
@@ -61,6 +67,12 @@ The current contract is frame-based: one analyzed frame produces one JSON payloa
         "y1": 197,
         "x2": 1093,
         "y2": 834
+      },
+      "bbox_norm": {
+        "x1": 0.425,
+        "y1": 0.182407,
+        "x2": 0.569271,
+        "y2": 0.772222
       },
       "zones": [],
       "zone": {
@@ -125,6 +137,8 @@ The request body is one frame analysis JSON object.
 
 - `analysis_id` identifies one analyzed frame payload.
 - `detections[]` contains zero or more visual detections for that frame.
+- `detections[].bbox` contains original-frame pixel coordinates.
+- `detections[].bbox_norm` contains normalized 0.0-1.0 coordinates for frontend overlays.
 - `detections[].zones[]` contains zero or more zones for one detection.
 - `detections[].zone` is a legacy/compat representative zone; new consumers should use `zones[]`.
 - `sensors` is a snapshot map keyed by sensor name.

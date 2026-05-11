@@ -34,6 +34,7 @@ Required top-level fields:
 | `analysis_id` | 1 | ID for one frame analysis payload |
 | `detections[]` | 0..N | Objects in the same frame; multiple people can be sent together |
 | `detections[].bbox` | 1 | One bbox per detection |
+| `detections[].bbox_norm` | 1 | Normalized 0.0-1.0 bbox for frontend overlays |
 | `detections[].zones[]` | 0..N | Zones containing this detection; supports overlapping polygon/compound zones |
 | `detections[].zone` | 0..1 | Legacy/compat representative zone. New consumers should use `zones[]` |
 | `detections[].event_type` | 1 | Representative detection decision. Multiple situations should be expressed as multiple `alerts[]` entries |
@@ -55,6 +56,7 @@ Each detection is the basic unit for drawing a bbox.
 - `confidence`: model confidence
 - `track_id`: tracking ID; `null` when tracking is not active
 - `bbox`: `{ x1, y1, x2, y2 }` in original frame coordinates
+- `bbox_norm`: `{ x1, y1, x2, y2 }` normalized by `frame_width` and `frame_height`; use this for responsive frontend overlays
 - `zones`: array of zone objects, for example `[{ zone_id, inside, zone_type }]`
 - `zone`: compatibility representative zone. Backend/frontend should prefer `zones[]`
 - `event_type`: representative detection decision, for example `DETECTION`, `ZONE_INTRUSION`, `PROXIMITY_RISK`

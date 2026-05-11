@@ -298,6 +298,25 @@ def _bbox_payload(detection: dict[str, Any]) -> dict[str, int]:
     }
 
 
+def _bbox_norm_payload(
+    bbox: dict[str, int],
+    frame_width: int | None,
+    frame_height: int | None,
+) -> dict[str, float] | None:
+    if not frame_width or not frame_height or frame_width <= 0 or frame_height <= 0:
+        return None
+
+    def normalize(value: int, size: int) -> float:
+        return round(max(0.0, min(1.0, float(value) / float(size))), 6)
+
+    return {
+        "x1": normalize(bbox["x1"], frame_width),
+        "y1": normalize(bbox["y1"], frame_height),
+        "x2": normalize(bbox["x2"], frame_width),
+        "y2": normalize(bbox["y2"], frame_height),
+    }
+
+
 
 
 
@@ -644,6 +663,7 @@ def build_analysis_result(
 
 
         if is_visual_detection:
+            bbox = _bbox_payload(detection)
 
             detection_payloads.append(
 
@@ -657,7 +677,9 @@ def build_analysis_result(
 
                     "track_id": detection.get("track_id"),
 
-                    "bbox": _bbox_payload(detection),
+                    "bbox": bbox,
+
+                    "bbox_norm": _bbox_norm_payload(bbox, width, height),
 
                     "zones": zones,
 

@@ -45,6 +45,8 @@ Current output is one frame analysis JSON per analyzed frame:
 analysis_id + camera_id + frame_id/frame_ts + detections[] + detections[].zones[] + sensors + alerts[]
 ```
 
+Each visual detection includes both original-frame pixel `bbox` and normalized `bbox_norm` coordinates for responsive frontend overlays.
+
 See `docs/shared/schema_examples.md` for the full JSON shape.
 
 ## Quick Start

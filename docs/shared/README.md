@@ -33,6 +33,7 @@ payload = analysis_id + detections[] + detections[].zones[] + sensors + alerts[]
 ## Important Alignment Points
 
 - Frontend must render multiple boxes from `detections[]`.
+- Frontend should prefer `bbox_norm` for responsive overlays and keep `bbox` for original-frame debugging/records.
 - Backend should treat `analysis_id` as the top-level idempotency key.
 - `alerts[].object_refs` points to detection IDs, not raw bbox objects.
 - Sensor status stays inside each sensor object.

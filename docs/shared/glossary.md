@@ -13,6 +13,7 @@
 | `frame_ts` | 해당 프레임이 수집/읽힌 시각. 영상과 bbox 정합성을 맞추는 핵심 timestamp다. |
 | `ts` | AI가 frame analysis payload를 생성한 시각. |
 | `bbox` | bounding box. `{x1, y1, x2, y2}` 원본 프레임 좌표를 사용한다. |
+| `bbox_norm` | `bbox`를 `frame_width`, `frame_height`로 나눈 0.0~1.0 비율 좌표. 프론트 overlay 표시용이다. |
 | `detection` | 한 프레임에서 모델이 찾은 객체 1개. 예: PERSON 1명. |
 | `detections[]` | 같은 프레임에서 찾은 detection들의 배열. 여러 명을 한 번에 보낼 수 있다. |
 | `zones[]` | detection 1개가 포함된 영역들의 배열. 겹치는 구역을 고려해 0개 이상을 허용한다. |
