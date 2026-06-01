@@ -23,6 +23,9 @@ model:
   onnx_model_path: null
   # Use "cuda:0" or "0" on an NVIDIA CUDA machine. Keep null/empty for auto CPU fallback.
   device: null
+  # Used when model.type is yolo. ByteTrack keeps stable person IDs across frames.
+  tracking: false
+  tracker: "bytetrack.yaml"
 
 sensors:
   - name: "ultra_front"
@@ -30,6 +33,7 @@ sensors:
     id: "ultra_front_01"
     sensor_type: "ultrasonic"
     unit: "m"
+    zone_ids: ["deck_floor_zone"]
     interval_sec: 0.2
     constant_value: 1.5
   - name: "ultra_rear"
@@ -37,21 +41,39 @@ sensors:
     id: "ultra_rear_01"
     sensor_type: "ultrasonic"
     unit: "m"
+    zone_ids: []
     interval_sec: 0.4
     constant_value: 2.2
 
 rules:
-  # Demo rule: screen center is (0, 0). Quadrants: 1=top-right, 2=top-left, 3=bottom-left, 4=bottom-right.
+  # Demo floor zone. Points are normalized to the full video frame and describe
+  # a floor-plane polygon, not a screen quadrant.
   danger_zones:
-    - zone_id: "danger_q2"
-      type: "quadrant"
-      quadrant: 2
+    - zone_id: "deck_floor_zone"
+      name: "floor zone"
+      type: "polygon"
       severity: "MEDIUM"
+      basis: "bbox_bottom_band"
+      min_overlap_ratio: 0.2
+      foot_band_ratio: 0.18
+      points_norm:
+        - {x: 0.560, y: 0.330}
+        - {x: 0.985, y: 0.315}
+        - {x: 0.985, y: 0.485}
+        - {x: 0.540, y: 0.500}
   sensor_thresholds:
     - sensor: "ultra_front"
       less_than: 1.8
       severity: "HIGH"
       event_type: "PROXIMITY_RISK"
+  ppe:
+    enabled: true
+    required: ["helmet", "vest"]
+    min_person_confidence: 0.45
+    min_ppe_confidence: 0.35
+    severity: "HIGH"
+    # Keep false for demos: absence alone can be caused by occlusion or camera angle.
+    infer_missing_when_absent: false
 
 backend:
   url: "http://127.0.0.1:8080/api/ai/events"

@@ -35,7 +35,9 @@ def test_backend_down_events_are_spooled(sample_video: Path, tmp_path: Path) -> 
                 constant_value=1.0,
             )
         ],
-        backend=BackendSettings(url="http://127.0.0.1:65500/api/ai/events", timeout_sec=0.05),
+        backend=BackendSettings(
+            url="http://127.0.0.1:65500/api/ai/events", timeout_sec=0.05
+        ),
         spool=SpoolSettings(file_path=str(spool_file), flush_batch=50),
     )
 
@@ -43,4 +45,13 @@ def test_backend_down_events_are_spooled(sample_video: Path, tmp_path: Path) -> 
     emitted = runtime.run()
     assert emitted == 4
     assert spool_file.exists()
-    assert len([line for line in spool_file.read_text(encoding="utf-8").splitlines() if line.strip()]) >= 4
+    assert (
+        len(
+            [
+                line
+                for line in spool_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        )
+        >= 4
+    )

@@ -57,8 +57,9 @@
     {
       "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
       "object_type": "PERSON",
+      "model_label": "Person",
       "confidence": 0.91,
-      "track_id": null,
+      "track_id": 7,
       "bbox": {
         "x1": 152,
         "y1": 156,
@@ -75,8 +76,9 @@
     {
       "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-2",
       "object_type": "PERSON",
+      "model_label": "Person",
       "confidence": 0.88,
-      "track_id": null,
+      "track_id": 12,
       "bbox": {
         "x1": 816,
         "y1": 197,
@@ -127,7 +129,7 @@
           "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
           "zone_id": "danger_q2",
           "inside": true,
-          "basis": "bbox_bottom_center",
+          "basis": "bbox_bottom_band",
           "overlap_ratio": 0.42
         },
         {
@@ -135,7 +137,7 @@
           "detection_id": "9df4d017-73a8-4b1b-b9e9-a1bc2c7f6d21:det-1",
           "zone_id": "forklift_lane",
           "inside": true,
-          "basis": "bbox_bottom_center",
+          "basis": "bbox_bottom_band",
           "overlap_ratio": 0.31
         }
       ],
@@ -193,16 +195,16 @@ Streaming timestamp가 없는 local file, webcam, mock 환경에서는 AI Runtim
 - `OFFLINE`: sensor를 사용할 수 없다.
 - `UNKNOWN`: 상태를 판단할 수 없다.
 
-## 현재 rule baseline
+## 현재 rule 기준
 
-현재 baseline rule engine은 최종 산업안전 정책이 아니다. 통합 테스트와 역할 분리를 위한 최소 판단 로직이다.
+현재 rule engine은 frame 단위 detection, polygon zone, sensor snapshot을 하나의 판단 결과로 묶는다.
 
 - Zone 정의는 최상위 `zones[]`에 둔다. Detection object 안에 넣지 않는다.
 - Detection-to-zone 판정 근거는 필요할 때 `alerts[].evidence[]`에 둔다.
-- Runtime의 zone rule은 현재 quadrant 기반 설정을 지원하지만, 계약은 polygon 형태의 `points`와 `points_norm`을 지원한다.
-- 현재 zone intrusion은 PERSON bbox center가 설정된 quadrant 안에 있는지 확인한다.
+- Runtime의 zone rule은 polygon과 quadrant 설정을 지원한다.
+- 현재 zone intrusion은 PERSON bbox 하단 영역(`bbox_bottom_band`)이 설정된 zone polygon 안에 들어오는 비율을 기준으로 한다.
 - Sensor threshold rule은 `PROXIMITY_RISK` 같은 alert를 만들 수 있다.
-- 최종 버전에서는 실제 polygon zone, bottom-center/foot point, polygon overlap ratio 같은 더 나은 위치 판정 기준을 정의해야 한다.
+- YOLO tracking을 켜면 `track_id`는 ByteTrack 등 tracker가 부여한다. tracking이 없으면 `null`이다.
 
 ## Legacy 참고
 

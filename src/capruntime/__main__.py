@@ -18,11 +18,15 @@ def _setup_logging() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Capstone runtime v2")
-    parser.add_argument("--config", default="configs/runtime.yaml", help="runtime config yaml")
+    parser.add_argument(
+        "--config", default="configs/runtime.yaml", help="runtime config yaml"
+    )
     parser.add_argument("--camera-id", default=None)
     parser.add_argument("--site-id", default=None)
 
-    parser.add_argument("--source-type", choices=("file", "rtsp", "webcam"), default=None)
+    parser.add_argument(
+        "--source-type", choices=("file", "rtsp", "webcam"), default=None
+    )
     parser.add_argument("--rtsp-url", default=None)
     parser.add_argument("--video", default=None, help="file source path override")
     parser.add_argument("--camera-index", type=int, default=None)
@@ -31,7 +35,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--model-type", choices=("mock", "yolo", "onnx"), default=None)
     parser.add_argument("--yolo-model-path", default=None)
     parser.add_argument("--onnx-model-path", default=None)
-    parser.add_argument("--device", default=None, help="model device override, e.g. cpu, cuda:0, 0")
+    parser.add_argument(
+        "--device", default=None, help="model device override, e.g. cpu, cuda:0, 0"
+    )
+    tracking_group = parser.add_mutually_exclusive_group()
+    tracking_group.add_argument(
+        "--tracking", dest="tracking", action="store_true", default=None
+    )
+    tracking_group.add_argument("--no-tracking", dest="tracking", action="store_false")
+    parser.add_argument(
+        "--tracker", default=None, help="Ultralytics tracker yaml, e.g. bytetrack.yaml"
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--output-jsonl", default=None)
     parser.add_argument("--backend-url", default=None)
@@ -78,6 +92,10 @@ def _build_cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
         model_cfg["onnx_model_path"] = args.onnx_model_path
     if args.device is not None:
         model_cfg["device"] = args.device
+    if args.tracking is not None:
+        model_cfg["tracking"] = args.tracking
+    if args.tracker is not None:
+        model_cfg["tracker"] = args.tracker
 
     if args.backend_url is not None:
         backend_cfg["url"] = args.backend_url

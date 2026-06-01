@@ -1,56 +1,30 @@
 from __future__ import annotations
 
 
-
 from capruntime.events import build_analysis_result, build_event
 
 
-
-
-
 def test_build_event_uses_final_sensor_object_map() -> None:
-
     event = build_event(
-
         site_id="S001",
-
         camera_id="cam01",
-
         detection={"bbox": {}, "confidence": 0.75, "reason_code": "PROXIMITY_RISK"},
-
         sensor_snapshot={
-
             "ultra_front": {
-
                 "sensor": "ultra_front",
-
                 "id": "ultra_front_01",
-
                 "type": "ultrasonic",
-
                 "ts": "2026-05-06T00:00:00Z",
-
                 "zone_ids": ["danger_q2", "forklift_lane"],
-
                 "unit": "m",
-
                 "data": {"distance_m": 1.2, "status": "ok"},
-
             },
-
             "ultra_rear": {"data": {"value": 2.4}},
-
             "note_only": {"data": {"status": "warn"}},
-
         },
-
         frame_id=42,
-
         frame_ts="2026-05-06T00:00:01Z",
-
     )
-
-
 
     assert event["frame_id"] == 42
 
@@ -63,21 +37,13 @@ def test_build_event_uses_final_sensor_object_map() -> None:
     assert "sensor_status" not in event
 
     assert event["sensors"]["ultra_front"] == {
-
         "id": "ultra_front_01",
-
         "type": "ultrasonic",
-
         "ts": "2026-05-06T00:00:00Z",
-
         "status": "OK",
-
         "unit": "m",
-
         "value": 1.2,
-
         "zone_ids": ["danger_q2", "forklift_lane"],
-
     }
 
     assert event["sensors"]["ultra_rear"]["value"] == 2.4
@@ -87,36 +53,19 @@ def test_build_event_uses_final_sensor_object_map() -> None:
     assert event["sensors"]["note_only"]["value"] is None
 
 
-
-
-
 def test_build_event_keeps_sensor_status_inside_each_sensor() -> None:
-
     event = build_event(
-
         site_id="S001",
-
         camera_id="cam01",
-
         detection={"bbox": {}, "confidence": 0.75},
-
         sensor_snapshot={
-
             "ultra_front": {
-
                 "sensor": "ultra_front",
-
                 "ts": "2026-05-06T00:00:00Z",
-
                 "data": {"distance_m": 0.8, "status": "warn"},
-
             }
-
         },
-
     )
-
-
 
     assert "sensor_status" not in event
 
@@ -125,101 +74,56 @@ def test_build_event_keeps_sensor_status_inside_each_sensor() -> None:
     assert event["sensors"]["ultra_front"]["value"] == 0.8
 
 
-
-
-
 def test_build_event_applies_rule_sensor_status_override() -> None:
-
     event = build_event(
-
         site_id="S001",
-
         camera_id="cam01",
-
         detection={
-
             "bbox": {},
-
             "confidence": 0.75,
-
             "sensor_status_overrides": {"ultra_front": "ALERT"},
-
         },
-
         sensor_snapshot={"ultra_front": {"data": {"value": 1.5}}},
-
     )
-
-
 
     assert event["sensors"]["ultra_front"]["status"] == "ALERT"
 
 
-
-
-
 def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
-
     payload = build_analysis_result(
-
         site_id="S001",
-
         camera_id="cam01",
-
         frame_id=7,
-
         frame_ts="2026-05-06T00:00:01Z",
-
         frame_shape=(1080, 1920, 3),
-
         detections=[
-
             {
-
                 "object_type": "PERSON",
-
                 "event_type": "ZONE_INTRUSION",
-
                 "severity": "HIGH",
-
                 "confidence": 0.91,
-
                 "bbox": {"x1": 10, "y1": 20, "x2": 30, "y2": 40},
-
                 "zones": [
-
                     {"zone_id": "danger_q2", "inside": True, "zone_type": "quadrant"},
-
-                    {"zone_id": "forklift_lane", "inside": True, "zone_type": "polygon"},
-
+                    {
+                        "zone_id": "forklift_lane",
+                        "inside": True,
+                        "zone_type": "polygon",
+                    },
                 ],
-
                 "reason_factors": ["PERSON_DETECTED", "ZONE_INTRUSION"],
-
                 "sensor_status_overrides": {"ultra_front": "ALERT"},
-
             },
-
             {
-
                 "object_type": "PERSON",
-
                 "event_type": "ZONE_INTRUSION",
-
                 "severity": "HIGH",
-
                 "confidence": 0.88,
-
                 "bbox": {"x1": 100, "y1": 120, "x2": 130, "y2": 160},
-
                 "zone": {"zone_id": "danger_q2", "inside": True},
-
                 "reason_factors": ["PERSON_DETECTED", "ZONE_INTRUSION"],
-
             },
-
         ],
-
         sensor_snapshot={
             "ultra_front": {
                 "id": "ultra_front_01",
@@ -246,10 +150,7 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
                 "points_norm": [],
             },
         ],
-
     )
-
-
 
     assert payload["analysis_id"]
 
@@ -331,8 +232,75 @@ def test_build_analysis_result_groups_frame_detections_and_alerts() -> None:
         },
     ]
 
-    assert payload["alerts"][0]["message"] == "작업자 2명 danger_q2, forklift_lane 진입 감지"
+    assert (
+        payload["alerts"][0]["message"]
+        == "작업자 2명 danger_q2, forklift_lane 진입 감지"
+    )
 
     assert payload["sensors"]["ultra_front"]["status"] == "ALERT"
 
-    assert payload["sensors"]["ultra_front"]["zone_ids"] == ["danger_q2", "forklift_lane"]
+    assert payload["sensors"]["ultra_front"]["zone_ids"] == [
+        "danger_q2",
+        "forklift_lane",
+    ]
+
+
+def test_build_analysis_result_keeps_ppe_alert_evidence() -> None:
+    payload = build_analysis_result(
+        site_id="S001",
+        camera_id="cam01",
+        frame_id=9,
+        frame_ts="2026-05-06T00:00:02Z",
+        frame_shape=(480, 640, 3),
+        detections=[
+            {
+                "object_type": "PERSON",
+                "event_type": "DETECTION",
+                "severity": "LOW",
+                "confidence": 0.9,
+                "bbox": {"x1": 100, "y1": 40, "x2": 220, "y2": 420},
+            },
+            {
+                "object_type": "PERSON",
+                "event_type": "HELMET_MISSING",
+                "severity": "HIGH",
+                "confidence": 0.9,
+                "bbox": {"x1": 100, "y1": 40, "x2": 220, "y2": 420},
+                "suppress_detection": True,
+                "ref_detection_index": 0,
+                "reason_factors": ["PERSON_DETECTED", "PPE_CHECK", "HELMET_MISSING"],
+                "ppe": {"missing": ["helmet"], "worn": [], "required": ["helmet"]},
+                "ppe_evidence": [
+                    {
+                        "type": "ppe_match",
+                        "person_ref": "person-0",
+                        "ppe": "helmet",
+                        "status": "missing",
+                        "object_type": "NO_HELMET",
+                        "confidence": 0.82,
+                    }
+                ],
+            },
+        ],
+        sensor_snapshot={},
+    )
+
+    assert len(payload["detections"]) == 1
+    assert payload["alerts"][0]["event_type"] == "HELMET_MISSING"
+    assert payload["alerts"][0]["object_refs"] == [
+        payload["detections"][0]["detection_id"]
+    ]
+    assert payload["alerts"][0]["reason"] == {
+        "code": "HELMET_MISSING",
+        "factors": ["PERSON_DETECTED", "PPE_CHECK", "HELMET_MISSING"],
+    }
+    assert payload["alerts"][0]["evidence"] == [
+        {
+            "type": "ppe_match",
+            "person_ref": "person-0",
+            "ppe": "helmet",
+            "status": "missing",
+            "object_type": "NO_HELMET",
+            "confidence": 0.82,
+        }
+    ]

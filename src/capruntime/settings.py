@@ -47,6 +47,8 @@ class ModelSettings:
     yolo_model_path: str | None = None
     onnx_model_path: str | None = None
     device: str | None = None
+    tracking: bool = False
+    tracker: str = "bytetrack.yaml"
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,7 @@ class SensorSettings:
     sensor_id: str | None = None
     sensor_type: str = "generic"
     unit: str | None = None
+    zone_ids: tuple[str, ...] = ()
     interval_sec: float = 1.0
     constant_value: float = 0.0
     jsonl_path: str | None = None
@@ -65,9 +68,15 @@ class SensorSettings:
 @dataclass(frozen=True)
 class DangerZoneSettings:
     zone_id: str
-    type: str = "quadrant"  # quadrant
+    type: str = "quadrant"  # quadrant | polygon
     quadrant: int = 1
     severity: str = "MEDIUM"
+    name: str | None = None
+    points: tuple[tuple[float, float], ...] = ()
+    points_norm: tuple[tuple[float, float], ...] = ()
+    basis: str = "bbox_bottom_band"
+    min_overlap_ratio: float = 0.2
+    foot_band_ratio: float = 0.18
 
 
 @dataclass(frozen=True)
@@ -77,6 +86,16 @@ class SensorRuleSettings:
     greater_than: float | None = None
     severity: str = "HIGH"
     event_type: str = "PROXIMITY_RISK"
+
+
+@dataclass(frozen=True)
+class PpeRuleSettings:
+    enabled: bool = False
+    required: tuple[str, ...] = ("helmet", "vest")
+    min_person_confidence: float = 0.45
+    min_ppe_confidence: float = 0.35
+    severity: str = "HIGH"
+    infer_missing_when_absent: bool = False
 
 
 @dataclass(frozen=True)
@@ -105,6 +124,7 @@ class RuntimeSettings:
     sensors: list[SensorSettings] = field(default_factory=list)
     danger_zones: list[DangerZoneSettings] = field(default_factory=list)
     sensor_rules: list[SensorRuleSettings] = field(default_factory=list)
+    ppe_rules: PpeRuleSettings = field(default_factory=PpeRuleSettings)
     backend: BackendSettings = field(default_factory=BackendSettings)
     spool: SpoolSettings = field(default_factory=SpoolSettings)
 
@@ -133,11 +153,21 @@ def _default_config() -> dict[str, Any]:
             "yolo_model_path": None,
             "onnx_model_path": None,
             "device": None,
+            "tracking": False,
+            "tracker": "bytetrack.yaml",
         },
         "sensors": [],
         "rules": {
             "danger_zones": [],
             "sensor_thresholds": [],
+            "ppe": {
+                "enabled": False,
+                "required": ["helmet", "vest"],
+                "min_person_confidence": 0.45,
+                "min_ppe_confidence": 0.35,
+                "severity": "HIGH",
+                "infer_missing_when_absent": False,
+            },
         },
         "backend": {
             "url": "http://127.0.0.1:8080/api/ai/events",
@@ -195,6 +225,10 @@ def _env_overrides() -> dict[str, Any]:
         model["onnx_model_path"] = os.getenv("CR_ONNX_MODEL_PATH")
     if os.getenv("CR_MODEL_DEVICE"):
         model["device"] = os.getenv("CR_MODEL_DEVICE")
+    if os.getenv("CR_MODEL_TRACKING"):
+        model["tracking"] = _as_bool(os.getenv("CR_MODEL_TRACKING"), default=False)
+    if os.getenv("CR_MODEL_TRACKER"):
+        model["tracker"] = os.getenv("CR_MODEL_TRACKER")
 
     if os.getenv("CR_BACKEND_URL"):
         backend["url"] = os.getenv("CR_BACKEND_URL")
@@ -230,6 +264,35 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return content
 
 
+def _parse_points(value: Any, field_name: str) -> tuple[tuple[float, float], ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list")
+    points: list[tuple[float, float]] = []
+    for point in value:
+        if isinstance(point, dict):
+            if "x" not in point or "y" not in point:
+                raise ValueError(f"{field_name} entries must contain x and y")
+            points.append((float(point["x"]), float(point["y"])))
+        elif isinstance(point, (list, tuple)) and len(point) == 2:
+            points.append((float(point[0]), float(point[1])))
+        else:
+            raise ValueError(f"{field_name} entries must be {{x, y}} or [x, y]")
+    return tuple(points)
+
+
+def _parse_string_list(value: Any, field_name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        text = value.strip()
+        return (text,) if text else ()
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list or string")
+    return tuple(str(item).strip() for item in value if str(item).strip())
+
+
 def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
     runtime_cfg = cfg.get("runtime", {})
     source_cfg = cfg.get("source", {})
@@ -240,6 +303,7 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
     rules_cfg = cfg.get("rules", {})
     danger_zones_cfg = rules_cfg.get("danger_zones", [])
     sensor_rules_cfg = rules_cfg.get("sensor_thresholds", [])
+    ppe_rules_cfg = rules_cfg.get("ppe", {})
 
     source = SourceSettings(
         type=str(source_cfg.get("type", "file")).strip().lower(),
@@ -254,6 +318,9 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
         yolo_model_path=model_cfg.get("yolo_model_path"),
         onnx_model_path=model_cfg.get("onnx_model_path"),
         device=model_cfg.get("device"),
+        tracking=_as_bool(model_cfg.get("tracking"), default=False),
+        tracker=str(model_cfg.get("tracker", "bytetrack.yaml")).strip()
+        or "bytetrack.yaml",
     )
 
     sensors: list[SensorSettings] = []
@@ -270,8 +337,11 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
                 name=name,
                 type=str(item.get("type", "constant")).strip().lower(),
                 sensor_id=item.get("id") or item.get("sensor_id"),
-                sensor_type=str(item.get("sensor_type", item.get("kind", "generic"))).strip().lower(),
+                sensor_type=str(item.get("sensor_type", item.get("kind", "generic")))
+                .strip()
+                .lower(),
                 unit=item.get("unit"),
+                zone_ids=_parse_string_list(item.get("zone_ids"), "sensors[].zone_ids"),
                 interval_sec=float(item.get("interval_sec", 1.0)),
                 constant_value=float(item.get("constant_value", 0.0)),
                 jsonl_path=item.get("jsonl_path"),
@@ -294,6 +364,14 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
                 type=str(item.get("type", "quadrant")).strip().lower(),
                 quadrant=int(item.get("quadrant", 1)),
                 severity=str(item.get("severity", "MEDIUM")).strip().upper(),
+                name=item.get("name"),
+                points=_parse_points(item.get("points"), "rules.danger_zones[].points"),
+                points_norm=_parse_points(
+                    item.get("points_norm"), "rules.danger_zones[].points_norm"
+                ),
+                basis=str(item.get("basis", "bbox_bottom_band")).strip().lower(),
+                min_overlap_ratio=float(item.get("min_overlap_ratio", 0.2)),
+                foot_band_ratio=float(item.get("foot_band_ratio", 0.18)),
             )
         )
 
@@ -309,12 +387,43 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
         sensor_rules.append(
             SensorRuleSettings(
                 sensor=sensor,
-                less_than=float(item["less_than"]) if item.get("less_than") is not None else None,
-                greater_than=float(item["greater_than"]) if item.get("greater_than") is not None else None,
+                less_than=float(item["less_than"])
+                if item.get("less_than") is not None
+                else None,
+                greater_than=float(item["greater_than"])
+                if item.get("greater_than") is not None
+                else None,
                 severity=str(item.get("severity", "HIGH")).strip().upper(),
-                event_type=str(item.get("event_type", "PROXIMITY_RISK")).strip().upper(),
+                event_type=str(item.get("event_type", "PROXIMITY_RISK"))
+                .strip()
+                .upper(),
             )
         )
+
+    if not isinstance(ppe_rules_cfg, dict):
+        raise ValueError("rules.ppe must be a mapping")
+    ppe_required_raw = ppe_rules_cfg.get("required", ["helmet", "vest"])
+    if isinstance(ppe_required_raw, str):
+        ppe_required = (
+            (ppe_required_raw.strip().lower(),) if ppe_required_raw.strip() else ()
+        )
+    elif isinstance(ppe_required_raw, list):
+        ppe_required = tuple(
+            str(item).strip().lower() for item in ppe_required_raw if str(item).strip()
+        )
+    else:
+        raise ValueError("rules.ppe.required must be a list or string")
+    ppe_rules = PpeRuleSettings(
+        enabled=_as_bool(ppe_rules_cfg.get("enabled"), default=False),
+        required=ppe_required,
+        min_person_confidence=float(ppe_rules_cfg.get("min_person_confidence", 0.45)),
+        min_ppe_confidence=float(ppe_rules_cfg.get("min_ppe_confidence", 0.35)),
+        severity=str(ppe_rules_cfg.get("severity", "HIGH")).strip().upper(),
+        infer_missing_when_absent=_as_bool(
+            ppe_rules_cfg.get("infer_missing_when_absent"),
+            default=False,
+        ),
+    )
 
     settings = RuntimeSettings(
         site_id=str(runtime_cfg.get("site_id", "S001")),
@@ -329,12 +438,15 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
         sensors=sensors,
         danger_zones=danger_zones,
         sensor_rules=sensor_rules,
+        ppe_rules=ppe_rules,
         backend=BackendSettings(
             url=str(backend_cfg.get("url", "http://127.0.0.1:8080/api/ai/events")),
             timeout_sec=float(backend_cfg.get("timeout_sec", 10.0)),
         ),
         spool=SpoolSettings(
-            file_path=str(spool_cfg.get("file_path", "outputs/spool/pending_events.jsonl")),
+            file_path=str(
+                spool_cfg.get("file_path", "outputs/spool/pending_events.jsonl")
+            ),
             flush_batch=max(1, int(spool_cfg.get("flush_batch", 100))),
         ),
     )
@@ -344,10 +456,16 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
     if settings.model.type not in {"mock", "yolo", "onnx"}:
         raise ValueError(f"Unsupported model.type: {settings.model.type}")
     for zone in settings.danger_zones:
-        if zone.type != "quadrant":
+        if zone.type not in {"quadrant", "polygon"}:
             raise ValueError(f"Unsupported danger zone type: {zone.type}")
-        if zone.quadrant not in {1, 2, 3, 4}:
+        if zone.type == "quadrant" and zone.quadrant not in {1, 2, 3, 4}:
             raise ValueError(f"Unsupported quadrant: {zone.quadrant}")
+        if (
+            zone.type == "polygon"
+            and len(zone.points) < 3
+            and len(zone.points_norm) < 3
+        ):
+            raise ValueError(f"Polygon zone requires at least 3 points: {zone.zone_id}")
     if settings.source.type == "file" and not settings.source.file_path:
         raise ValueError("source.file_path is required when source.type=file")
     if settings.source.type == "rtsp" and not settings.source.rtsp_url:
@@ -355,7 +473,10 @@ def _to_settings(cfg: dict[str, Any]) -> RuntimeSettings:
     return settings
 
 
-def load_runtime_settings(config_path: str | Path = "configs/runtime.yaml", cli_overrides: dict[str, Any] | None = None) -> RuntimeSettings:
+def load_runtime_settings(
+    config_path: str | Path = "configs/runtime.yaml",
+    cli_overrides: dict[str, Any] | None = None,
+) -> RuntimeSettings:
     cfg = _default_config()
     yaml_cfg = _load_yaml(Path(config_path))
     cfg = _deep_merge(cfg, yaml_cfg)

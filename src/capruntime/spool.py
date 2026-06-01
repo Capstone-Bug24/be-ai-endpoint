@@ -24,13 +24,23 @@ class JsonlSpool:
     def size(self) -> int:
         if not self._path.exists():
             return 0
-        lines = [line for line in self._path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        lines = [
+            line
+            for line in self._path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
         return len(lines)
 
-    def flush(self, send_fn: Callable[[dict], bool], batch_limit: int = 100) -> tuple[int, int]:
+    def flush(
+        self, send_fn: Callable[[dict], bool], batch_limit: int = 100
+    ) -> tuple[int, int]:
         if not self._path.exists():
             return 0, 0
-        lines = [line for line in self._path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        lines = [
+            line
+            for line in self._path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
         if not lines:
             self._path.unlink(missing_ok=True)
             return 0, 0

@@ -19,8 +19,12 @@ def test_jsonl_sensor_replay(tmp_path: Path) -> None:
 
 def test_sensor_hub_collects_multiple_sensors() -> None:
     sensors = [
-        SensorSettings(name="s1", type="constant", interval_sec=0.01, constant_value=1.0),
-        SensorSettings(name="s2", type="constant", interval_sec=0.01, constant_value=2.0),
+        SensorSettings(
+            name="s1", type="constant", interval_sec=0.01, constant_value=1.0
+        ),
+        SensorSettings(
+            name="s2", type="constant", interval_sec=0.01, constant_value=2.0
+        ),
     ]
     hub = SensorHub(sensors)
     hub.start()

@@ -66,7 +66,8 @@
 - `detection_id`: detection 1개의 ID. 예: `{analysis_id}:det-1`
 - `object_type`: `PERSON`, `HELMET`, `FORKLIFT`, `SENSOR` 등
 - `confidence`: 모델 confidence
-- `track_id`: tracking ID. tracking이 없으면 `null`
+- `track_id`: tracking ID. YOLO tracking이 켜진 경우 ByteTrack 등 tracker가 부여하며, tracking이 없으면 `null`
+- `model_label`: 모델 원본 class label. 예: `Hardhat`, `NO-Safety Vest`
 - `bbox`: `{ x1, y1, x2, y2 }` 형식의 원본 프레임 기준 좌표
 - `bbox_norm`: `frame_width`, `frame_height`로 정규화한 `{ x1, y1, x2, y2 }`
 
@@ -143,22 +144,17 @@ Streaming이 source timestamp를 제공하지 않는 local file, webcam, mock �
 - Zone 형식: `points`와 `points_norm`은 순서가 있는 polygon 점 배열을 사용한다.
 - Frontend는 반응형 overlay 표시에는 정규화 좌표를 우선 사용하고, 원본 기록과 디버깅에는 pixel 좌표를 함께 사용할 수 있다.
 
-## 현재 rule baseline
+## 현재 rule 기준
 
-현재 rule engine은 최종 산업안전 정책이 아니라 테스트와 통합을 위한 baseline이다.
+현재 rule engine은 영상 detection, polygon zone, sensor snapshot을 하나의 frame analysis로 묶는 판단 계층이다.
 
-- Runtime의 zone rule은 현재 quadrant 설정을 지원한다.
+- Runtime의 zone rule은 polygon과 quadrant 설정을 지원한다.
 - Detection 1개가 여러 zone과 매칭되어 alert를 만들면, 해당 alert는 여러 `zone_refs[]`와 선택적 `evidence[]`를 가질 수 있다.
-- 현재 zone intrusion 판정은 PERSON bbox center point를 기준으로 한다.
+- 현재 zone intrusion 판정은 PERSON bbox의 하단 영역(`bbox_bottom_band`)이 zone polygon 안에 들어오는 비율을 기준으로 한다.
 - Sensor threshold rule은 `PROXIMITY_RISK` 같은 alert를 만들 수 있다.
 - 시각 detection이 없어도 sensor 위험만으로 sensor-only analysis를 보낼 수 있다.
 
-추가 개선이 필요한 부분은 다음과 같다.
-
-- 실제 위험구역은 quadrant가 아니라 polygon으로 정의해야 한다.
-- Bbox center 대신 bottom-center/foot point 또는 polygon overlap ratio를 사용하는 것이 더 적절하다.
-- 여러 사람이 동시에 나올 때 `alerts[].object_refs[]`가 실제 위험 객체만 참조하는지 검증해야 한다.
-- Sensor 방향과 위치를 영상 zone에 매핑해야 한다. Sensor alert를 모든 detection에 무조건 붙이면 안 된다.
+운영 설정에서는 실제 위험구역을 camera별 polygon으로 정의해야 한다. 여러 사람이 동시에 나올 때는 `alerts[].object_refs[]`가 실제 위험 객체만 참조해야 하며, sensor 방향과 위치는 `sensors.*.zone_ids[]`로 영상 zone에 매핑한다.
 
 ## 팀별 책임
 
@@ -236,4 +232,4 @@ IoT는 다음 항목을 제공해야 한다.
 - [ ] Frontend: `zones[]`의 여러 polygon을 표시할 수 있다.
 - [ ] Streaming: `camera_id`, stream URL, fps, resolution, frame timestamp source를 확정한다.
 - [ ] IoT: sensor catalog, status 값, `zone_ids[]`를 확정한다.
-- [ ] AI: 현재 zone/rule 로직이 최종 정책이 아니라 baseline임을 명확히 공유한다.
+- [ ] AI: ByteTrack 등 tracking 사용 여부와 zone 판정 기준(`bbox_bottom_band`)을 공유한다.

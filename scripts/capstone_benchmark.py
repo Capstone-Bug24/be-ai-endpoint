@@ -26,7 +26,9 @@ from capruntime.settings import (  # noqa: E402
 def _count_jsonl(path: Path) -> int:
     if not path.exists():
         return 0
-    return len([line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()])
+    return len(
+        [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    )
 
 
 def _run_case(
@@ -54,8 +56,12 @@ def _run_case(
         source=SourceSettings(type="file", file_path=str(source_file), loop=True),
         model=ModelSettings(type="mock", score_threshold=0.25),
         sensors=[
-            SensorSettings(name="s1", type="constant", interval_sec=0.05, constant_value=1.0),
-            SensorSettings(name="s2", type="constant", interval_sec=0.10, constant_value=2.0),
+            SensorSettings(
+                name="s1", type="constant", interval_sec=0.05, constant_value=1.0
+            ),
+            SensorSettings(
+                name="s2", type="constant", interval_sec=0.10, constant_value=2.0
+            ),
         ],
         backend=BackendSettings(url=backend_url, timeout_sec=0.2),
         spool=SpoolSettings(file_path=str(spool_path), flush_batch=100),
@@ -126,7 +132,9 @@ def main() -> int:
 
     report_path = (ROOT / args.report_json).resolve()
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    report_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0

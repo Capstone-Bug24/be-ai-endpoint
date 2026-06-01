@@ -19,6 +19,7 @@ For cross-team coordination, start here first:
 - One process can ingest multiple sensors concurrently.
 - Video source options: `rtsp`, `webcam`, `file`.
 - Model options: `mock`, `yolo`, `onnx`.
+- YOLO tracking option: ByteTrack/BoT-SORT via Ultralytics tracker YAML.
 - Output: frame analysis JSON to backend API with resilient local spool queue.
 
 ## Runtime Topology
@@ -28,7 +29,8 @@ flowchart LR
     A["Video Source (rtsp|webcam|file)"] --> B["Main Loop"]
     S["Sensor Workers (N)"] --> C["Sensor Hub Snapshot"]
     B --> D["Model Runner (mock|yolo|onnx)"]
-    D --> E["Rule Baseline"]
+    D --> T["Tracker (optional ByteTrack)"]
+    T --> E["Rule Engine"]
     C --> E
     E --> F["Frame Analysis Builder"]
     F --> G["Resilient Emitter"]

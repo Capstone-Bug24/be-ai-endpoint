@@ -52,7 +52,9 @@ def analyze(test_root: Path) -> Counters:
             if _is_trivial_assert_true(func):
                 counters.trivial_assert_true_total += 1
 
-            body_key = ast.dump(ast.Module(body=func.body, type_ignores=[]), include_attributes=False)
+            body_key = ast.dump(
+                ast.Module(body=func.body, type_ignores=[]), include_attributes=False
+            )
             body_hashes[body_key] = body_hashes.get(body_key, 0) + 1
 
     for count in body_hashes.values():

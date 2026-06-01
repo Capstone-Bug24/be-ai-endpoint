@@ -30,7 +30,7 @@ Backend 저장 구현, Frontend 표시 구현, Streaming의 실제 stream URL/fp
 
 | 팀 | 책임 범위 | AI에 제공해야 하는 것 | AI에서 받는 것 | AI 책임이 아닌 것 |
 |---|---|---|---|---|
-| AI/Runtime | 프레임 입력, 모델 추론, 센서 snapshot 반영, baseline rule, frame analysis payload 생성, backend 전송, spool fallback | 없음 | schema feedback, backend response contract, stream/sensor contract | 최종 DB schema, 사용자 알림 정책, frontend UI |
+| AI/Runtime | 프레임 입력, 모델 추론, tracking, 센서 snapshot 반영, zone/PPE/sensor rule, frame analysis payload 생성, backend 전송, spool fallback | 없음 | schema feedback, backend response contract, stream/sensor contract | 최종 DB schema, 사용자 알림 정책, frontend UI |
 | Streaming | 카메라 stream 운영 | `camera_id`, stream URL, codec, fps, resolution, healthcheck | AI가 소비하는 `camera_id` 정보 | 모델 추론, 이벤트 schema, backend 저장 |
 | IoT | 센서 하드웨어와 sensor payload | 센서 이름, ID, type, unit, 측정 주기, stale/offline rule, JSON 예시, sensor-to-zone mapping | `sensors`에 반영되는 sensor snapshot | 모델 추론, alert 생성, backend 저장 |
 | Backend | frame analysis 수신과 저장, 정책, 최종 알림 | `POST /api/ai/events`, 응답 의미, idempotency, 저장 계약 | 분석된 프레임 1개당 JSON 1개 | 모델 추론, stream 운영, 센서 하드웨어 |

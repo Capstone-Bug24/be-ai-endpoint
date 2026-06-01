@@ -16,8 +16,7 @@ def _now_iso() -> str:
 
 
 class SensorReader(Protocol):
-    def read(self) -> dict | None:
-        ...
+    def read(self) -> dict | None: ...
 
 
 @dataclass
@@ -37,7 +36,11 @@ class JsonlReplaySensor:
         p = Path(self.path)
         if not p.exists():
             raise FileNotFoundError(f"sensor jsonl file not found: {self.path}")
-        self._lines = [line.strip() for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+        self._lines = [
+            line.strip()
+            for line in p.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
         self._idx = 0
 
     def read(self) -> dict | None:
@@ -61,15 +64,19 @@ class SensorWorker:
         sensor_id: str | None = None,
         sensor_type: str = "generic",
         unit: str | None = None,
+        zone_ids: tuple[str, ...] = (),
     ) -> None:
         self._name = name
         self._sensor_id = sensor_id or name
         self._sensor_type = sensor_type
         self._unit = unit
+        self._zone_ids = zone_ids
         self._reader = reader
         self._interval = max(0.01, interval_sec)
         self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._loop, name=f"sensor-{name}", daemon=True)
+        self._thread = threading.Thread(
+            target=self._loop, name=f"sensor-{name}", daemon=True
+        )
         self._lock = threading.Lock()
         self._latest: dict | None = None
         self._errors = 0
@@ -96,6 +103,8 @@ class SensorWorker:
                         }
                         if self._unit is not None:
                             self._latest["unit"] = self._unit
+                        if self._zone_ids:
+                            self._latest["zone_ids"] = list(self._zone_ids)
             except Exception:
                 self._errors += 1
             time.sleep(self._interval)
@@ -134,6 +143,7 @@ class SensorHub:
                     sensor_id=cfg.sensor_id,
                     sensor_type=cfg.sensor_type,
                     unit=cfg.unit,
+                    zone_ids=cfg.zone_ids,
                 )
             )
 

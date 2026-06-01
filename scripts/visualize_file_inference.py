@@ -21,7 +21,9 @@ from capruntime.visualization import (  # noqa: E402
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render model detections onto a local video file")
+    parser = argparse.ArgumentParser(
+        description="Render model detections onto a local video file"
+    )
     parser.add_argument("--config", default="configs/runtime.yaml")
     parser.add_argument("--video", default=None, help="file source path override")
     parser.add_argument("--output-video", default="outputs/annotated.mp4")
@@ -74,7 +76,9 @@ def main() -> int:
     frame_index = 0
 
     try:
-        fps = resolve_video_fps(capture.get(cv2.CAP_PROP_FPS), default_fps=float(settings.fps_limit or 10))
+        fps = resolve_video_fps(
+            capture.get(cv2.CAP_PROP_FPS), default_fps=float(settings.fps_limit or 10)
+        )
         while True:
             ok, frame = capture.read()
             if not ok or frame is None:

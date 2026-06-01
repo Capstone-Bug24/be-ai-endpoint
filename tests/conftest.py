@@ -40,4 +40,6 @@ def sample_video(tmp_path: Path) -> Path:
         path = tmp_path / filename
         if _write_sample_video(path, codec):
             return path
-    pytest.skip("OpenCV video codecs unavailable on this runner; skipping video-based tests")
+    pytest.skip(
+        "OpenCV video codecs unavailable on this runner; skipping video-based tests"
+    )

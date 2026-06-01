@@ -18,14 +18,15 @@ flowchart LR
     subgraph AI["AI Runtime"]
         A1["frame ingest"]
         A2["inference"]
-        A3["sensor snapshot"]
-        A4["baseline rule"]
-        A5["frame analysis 생성"]
-        A6["POST /api/ai/events"]
-        A7["local spool fallback"]
-        A1 --> A2 --> A4 --> A5 --> A6
-        A3 --> A4
-        A6 -. "send failure" .-> A7
+        A3["tracking"]
+        A4["sensor snapshot"]
+        A5["zone / PPE / sensor rule"]
+        A6["frame analysis 생성"]
+        A7["POST /api/ai/events"]
+        A8["local spool fallback"]
+        A1 --> A2 --> A3 --> A5 --> A6 --> A7
+        A4 --> A5
+        A7 -. "send failure" .-> A8
     end
 
     subgraph Backend["Backend"]
@@ -41,15 +42,15 @@ flowchart LR
     S1 --> A1
     S2 --> A1
     S3 --> A1
-    I1 --> A3
-    I2 --> A3
-    A6 --> B1
+    I1 --> A4
+    I2 --> A4
+    A7 --> B1
     B2 --> F1
 ```
 
 ## 핵심 기준
 
-- AI Runtime은 영상 프레임을 읽고, 모델 추론과 baseline rule을 적용한 뒤 frame analysis payload를 만든다.
+- AI Runtime은 영상 프레임을 읽고, 모델 추론, tracking, zone/PPE/sensor rule을 적용한 뒤 frame analysis payload를 만든다.
 - Backend는 payload 저장, 중복 처리, 최종 알림 정책을 책임진다.
 - Frontend는 backend 또는 event bridge가 제공하는 frame analysis 데이터를 시각화한다.
 - Streaming은 안정적인 영상 입력, camera metadata, frame timestamp 기준을 제공한다.

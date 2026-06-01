@@ -13,16 +13,18 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from capruntime.emitter import ResilientEmitter  # noqa: E402
-from capruntime.events import build_event  # noqa: E402
+from capruntime.events import build_analysis_result  # noqa: E402
 from capruntime.model import create_model_runner  # noqa: E402
 from capruntime.rules import apply_runtime_rules  # noqa: E402
+from capruntime.runtime import _zone_definitions  # noqa: E402
 from capruntime.sensors import SensorHub  # noqa: E402
 from capruntime.settings import load_runtime_settings  # noqa: E402
 from capruntime.video import create_video_source  # noqa: E402
 from capruntime.visualization import (  # noqa: E402
+    DisplayStabilizer,
     build_video_writer,
     draw_detections,
-    draw_quadrant_overlay,
+    draw_zone_overlay,
     resolve_video_fps,
 )
 
@@ -32,18 +34,37 @@ def _now_iso() -> str:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Live webcam/RTSP visualization with runtime rules")
+    parser = argparse.ArgumentParser(
+        description="Live webcam/RTSP visualization with runtime rules"
+    )
     parser.add_argument("--config", default="configs/runtime.yaml")
-    parser.add_argument("--source-type", choices=("webcam", "rtsp", "file"), default="webcam")
+    parser.add_argument(
+        "--source-type", choices=("webcam", "rtsp", "file"), default="webcam"
+    )
     parser.add_argument("--camera-index", type=int, default=0)
     parser.add_argument("--rtsp-url", default=None)
     parser.add_argument("--video", default=None)
+    parser.add_argument("--loop", action="store_true", help="loop file source")
     parser.add_argument("--model-type", choices=("mock", "yolo", "onnx"), default=None)
     parser.add_argument("--yolo-model-path", default=None)
-    parser.add_argument("--device", default=None, help="YOLO device override, e.g. cpu, cuda:0, 0")
+    parser.add_argument(
+        "--device", default=None, help="YOLO device override, e.g. cpu, cuda:0, 0"
+    )
+    tracking_group = parser.add_mutually_exclusive_group()
+    tracking_group.add_argument(
+        "--tracking", dest="tracking", action="store_true", default=None
+    )
+    tracking_group.add_argument("--no-tracking", dest="tracking", action="store_false")
+    parser.add_argument(
+        "--tracker", default=None, help="Ultralytics tracker yaml, e.g. bytetrack.yaml"
+    )
     parser.add_argument("--score-threshold", type=float, default=None)
     parser.add_argument("--backend-url", default=None)
-    parser.add_argument("--emit", action="store_true", help="send events to backend; default only writes optional JSONL")
+    parser.add_argument(
+        "--emit",
+        action="store_true",
+        help="send events to backend; default only writes optional JSONL",
+    )
     parser.add_argument("--output-jsonl", default=None)
     parser.add_argument("--output-video", default=None)
     parser.add_argument(
@@ -53,7 +74,9 @@ def _parse_args() -> argparse.Namespace:
         help="resize frames before inference/display; boxes are reported in resized-frame coordinates",
     )
     parser.add_argument("--max-frames", type=int, default=None)
-    parser.add_argument("--no-window", action="store_true", help="do not open a cv2 window")
+    parser.add_argument(
+        "--no-window", action="store_true", help="do not open a cv2 window"
+    )
     return parser.parse_args()
 
 
@@ -79,6 +102,8 @@ def _build_cli_overrides(args: argparse.Namespace) -> dict:
         source_cfg["rtsp_url"] = args.rtsp_url
     if args.source_type == "file" and args.video is not None:
         source_cfg["file_path"] = str(Path(args.video).expanduser())
+    if args.loop:
+        source_cfg["loop"] = True
     if args.output_jsonl is not None:
         runtime_cfg["output_jsonl"] = args.output_jsonl
     if args.model_type is not None:
@@ -87,6 +112,10 @@ def _build_cli_overrides(args: argparse.Namespace) -> dict:
         model_cfg["yolo_model_path"] = args.yolo_model_path
     if args.device is not None:
         model_cfg["device"] = args.device
+    if args.tracking is not None:
+        model_cfg["tracking"] = args.tracking
+    if args.tracker is not None:
+        model_cfg["tracker"] = args.tracker
     if args.score_threshold is not None:
         model_cfg["score_threshold"] = args.score_threshold
     if args.backend_url is not None:
@@ -120,8 +149,7 @@ def main() -> int:
     writer = None
     frame_index = 0
     emitted = 0
-    quadrants = [zone.quadrant for zone in settings.danger_zones if zone.type == "quadrant"]
-
+    display_stabilizer = DisplayStabilizer()
     sensor_hub.start()
     try:
         while True:
@@ -131,6 +159,9 @@ def main() -> int:
                     continue
                 break
             frame_ts = _now_iso()
+            source_frame_ts, frame_ts_source = source.frame_timestamp()
+            frame_ts = source_frame_ts or frame_ts
+            frame_ts_source = frame_ts_source or "ai_read_time"
             frame = _resize_frame(frame, args.resize_width)
 
             detections = model_runner.infer(frame, frame_index)
@@ -141,22 +172,33 @@ def main() -> int:
                 sensor_snapshot=sensors,
                 danger_zones=settings.danger_zones,
                 sensor_rules=settings.sensor_rules,
+                ppe_rules=settings.ppe_rules,
             )
 
-            for detection in detections:
-                event = build_event(
+            if detections:
+                analysis = build_analysis_result(
                     site_id=settings.site_id,
                     camera_id=settings.camera_id,
-                    detection=detection,
+                    detections=detections,
                     sensor_snapshot=sensors,
                     frame_id=frame_index,
                     frame_ts=frame_ts,
+                    frame_ts_source=frame_ts_source,
+                    frame_shape=frame.shape,
+                    zone_definitions=_zone_definitions(settings),
                 )
-                emitter.emit(event)
+                emitter.emit(analysis)
                 emitted += 1
 
-            annotated = draw_quadrant_overlay(frame, quadrants)
-            annotated = draw_detections(annotated, detections)
+            annotated = draw_zone_overlay(frame, settings.danger_zones)
+            annotated = draw_detections(
+                annotated,
+                display_stabilizer.update(detections),
+                compact=True,
+                thickness=1,
+                font_scale=0.38,
+                label_non_person=False,
+            )
 
             if writer is None and args.output_video:
                 height, width = annotated.shape[:2]

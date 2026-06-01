@@ -11,8 +11,65 @@ from .settings import ModelSettings
 
 
 class ModelRunner(Protocol):
-    def infer(self, frame: np.ndarray, frame_index: int) -> list[dict]:
-        ...
+    def infer(self, frame: np.ndarray, frame_index: int) -> list[dict]: ...
+
+
+_OBJECT_TYPE_ALIASES = {
+    "person": "PERSON",
+    "worker": "PERSON",
+    "human": "PERSON",
+    "hardhat": "HELMET",
+    "hard_hat": "HELMET",
+    "helmet": "HELMET",
+    "safetyhelmet": "HELMET",
+    "safety_helmet": "HELMET",
+    "nohardhat": "NO_HELMET",
+    "no_hardhat": "NO_HELMET",
+    "no_hard_hat": "NO_HELMET",
+    "nohelmet": "NO_HELMET",
+    "no_helmet": "NO_HELMET",
+    "no_safety_helmet": "NO_HELMET",
+    "safetyvest": "VEST",
+    "safety_vest": "VEST",
+    "vest": "VEST",
+    "novest": "NO_VEST",
+    "no_vest": "NO_VEST",
+    "no_safety_vest": "NO_VEST",
+    "mask": "MASK",
+    "nomask": "NO_MASK",
+    "no_mask": "NO_MASK",
+    "goggles": "GOGGLES",
+    "goggle": "GOGGLES",
+    "nogoggles": "NO_GOGGLES",
+    "no_goggles": "NO_GOGGLES",
+    "gloves": "GLOVES",
+    "glove": "GLOVES",
+    "nogloves": "NO_GLOVES",
+    "no_gloves": "NO_GLOVES",
+    "boots": "BOOTS",
+    "boot": "BOOTS",
+    "noboots": "NO_BOOTS",
+    "no_boots": "NO_BOOTS",
+}
+
+_TRACKABLE_OBJECT_TYPES = {
+    "PERSON",
+    "VEHICLE",
+    "MACHINERY",
+    "FORKLIFT",
+    "TRUCK",
+}
+
+
+def normalize_object_type(label: str) -> str:
+    text = str(label or "OBJECT").strip()
+    if not text:
+        return "OBJECT"
+    compact = text.lower().replace("-", "_").replace(" ", "_")
+    compact = "_".join(part for part in compact.split("_") if part)
+    return _OBJECT_TYPE_ALIASES.get(
+        compact, text.upper().replace(" ", "_").replace("-", "_")
+    )
 
 
 def _ensure_ultralytics_config_dir() -> None:
@@ -60,6 +117,8 @@ class YoloModelRunner:
     model_path: str
     score_threshold: float = 0.25
     device: str | None = None
+    tracking: bool = False
+    tracker: str = "bytetrack.yaml"
 
     def __post_init__(self) -> None:
         try:
@@ -75,7 +134,15 @@ class YoloModelRunner:
         predict_kwargs = {"conf": self.score_threshold, "verbose": False}
         if self.device:
             predict_kwargs["device"] = self.device
-        results = self._model.predict(frame, **predict_kwargs)
+        if self.tracking:
+            results = self._model.track(
+                frame,
+                persist=True,
+                tracker=self.tracker,
+                **predict_kwargs,
+            )
+        else:
+            results = self._model.predict(frame, **predict_kwargs)
         payloads: list[dict] = []
         for result in results:
             boxes = getattr(result, "boxes", None)
@@ -85,11 +152,20 @@ class YoloModelRunner:
                 cls_id = int(box.cls[0])
                 conf = float(box.conf[0])
                 xyxy = box.xyxy[0].tolist()
-                label = str(result.names.get(cls_id, "OBJECT")).upper()
+                raw_label = str(result.names.get(cls_id, "OBJECT"))
+                label = normalize_object_type(raw_label)
+                track_id = None
+                box_id = getattr(box, "id", None)
+                if label in _TRACKABLE_OBJECT_TYPES and box_id is not None:
+                    try:
+                        track_id = int(box_id[0])
+                    except (TypeError, ValueError, IndexError):
+                        track_id = None
                 payloads.append(
                     {
                         "event_type": "DETECTION",
                         "object_type": label,
+                        "model_label": raw_label,
                         "severity": "MEDIUM",
                         "confidence": conf,
                         "bbox": {
@@ -98,7 +174,7 @@ class YoloModelRunner:
                             "x2": int(xyxy[2]),
                             "y2": int(xyxy[3]),
                         },
-                        "track_id": None,
+                        "track_id": track_id,
                     }
                 )
         return payloads
@@ -129,6 +205,8 @@ def create_model_runner(model: ModelSettings) -> ModelRunner:
             model_path=model.yolo_model_path,
             score_threshold=model.score_threshold,
             device=model.device,
+            tracking=model.tracking,
+            tracker=model.tracker,
         )
     if model.type == "onnx":
         return OnnxModelRunner(

@@ -51,6 +51,8 @@ env/
 /data/tmp/
 /data/processed/
 /data/raw/
+/data/samples/external/
+/data/samples/*.mp4
 /data/**/cache/
 /data/**/tmp/
 models/

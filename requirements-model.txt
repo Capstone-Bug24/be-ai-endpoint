@@ -1,4 +1,5 @@
 ultralytics==8.4.12
+lap>=0.5.12
 onnx
 onnxscript
 # Runtime (choose one based on device):

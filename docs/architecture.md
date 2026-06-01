@@ -10,9 +10,9 @@
 ## Flow
 
 1. Read frame from selected video source (`file|rtsp|webcam`).
-2. Run model inference (`mock|yolo|onnx`).
+2. Run model inference (`mock|yolo|onnx`), with optional YOLO tracking for stable `track_id`.
 3. Snapshot latest multi-sensor state.
-4. Apply baseline rules for zone/sensor fusion and attach decision evidence to alerts.
+4. Apply zone/PPE/sensor rules and attach decision evidence to alerts.
 5. Build one frame analysis payload for the frame.
 6. Emit to backend via `POST /api/ai/events`.
 7. If backend is unavailable, persist payloads to local spool.
@@ -39,7 +39,7 @@ This replaced the older one-event-per-object shape for cross-team integration be
 
 - This repository scope is camera/sensor input to backend frame analysis delivery.
 - Frontend visualization and backend final alert policy are out of scope.
-- Current zone/sensor rules are baseline logic, not the final industrial safety policy; `zones[]` defines areas and `alerts[].evidence[]` can record detection-zone evidence when needed.
+- Zone/PPE/sensor rules produce structured alert evidence; `zones[]` defines areas and `alerts[].evidence[]` records detection-zone or PPE evidence when needed.
 
 ## Operational Contract
 
